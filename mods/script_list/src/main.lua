@@ -37,13 +37,13 @@ function on_update()
     end
 
     -- Make the window
-    Client:window("Object List", {
+    Client:window("Scene Manifest", {
         anchor = anchor,
         title_bar = false,
         resizable = false,
         collapsible = false,
     }, function(ui)
-        ui:heading("Object List")
+        ui:heading("Scene Manifest")
         ui:separator()
 
         -- Header row with refresh button

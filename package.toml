@@ -1,4 +1,4 @@
 [package]
-name = "Object Menu"
+name = "Scene Manifest"
 version = "0.1.1"
 description = "Adds an object menu so you can see all your beautiful objects."
