@@ -21,16 +21,79 @@ function refresh()
 end
 refresh()
 
+-- Does the static UI at the top
+local function add_window_header(ui)
+    ui:heading("Scene Manifest")
+    ui:separator()
+
+    -- Header row with refresh button
+    ui:horizontal(function(ui)
+        ui:label("Refreshes the list of objects")
+        if ui:button("Refresh"):clicked() then
+            refresh()
+        end
+    end)
+
+    ui:add_space(10)
+end
+
+local function add_window_objects_header(ui, objs_length)
+    ui:label("Found " .. #scene_objects .. " objects:")
+    ui:separator()
+end
+
+local function add_window_objects(ui, objs)
+    for i, obj in ipairs(scene_objects) do
+        ui:horizontal(function(ui)
+
+            -- Get name
+            name = obj:get_name()
+            if name == nil then
+                local shape = obj:get_shape()
+                local shape_type = shape.shape_type
+                name = "Unnamed " .. shape_type
+            end
+
+            -- Display the name
+            ui:label(name)
+
+            -- Make Go button
+            if ui:button("Go"):clicked() then
+                Scene:get_host():set_camera_position(obj:get_position())
+            end
+        end)
+    end
+end
+
+local function add_window_objects_empty_header(ui)
+    ui:label("No objects found.")
+    ui:separator()
+end
+
+local function add_window(ui)
+    add_window_header(ui)
+
+    -- Display the list of objects
+    if scene_objects and #scene_objects > 0 then
+        add_window_objects_header(ui, #scene_objects)
+        add_window_objects(ui, scene_objects)
+    else
+        add_window_objects_empty_header(ui) -- Say that there are no objects
+    end
+end
+
 local was_open = false
 function on_update()
     -- Make the main bar item and see if it's open
     local open, anchor = Client:main_bar_item({})
 
+    -- Don't draw if not open
     if not open then
         was_open = false
         return
     end
 
+    -- Refresh on open
     if was_open == false then
         was_open = true
         refresh()
@@ -42,46 +105,5 @@ function on_update()
         title_bar = false,
         resizable = false,
         collapsible = false,
-    }, function(ui)
-        ui:heading("Scene Manifest")
-        ui:separator()
-
-        -- Header row with refresh button
-        ui:horizontal(function(ui)
-            ui:label("Refreshes the list of objects")
-            if ui:button("Refresh"):clicked() then
-                refresh()
-            end
-        end)
-
-        ui:add_space(10)
-
-        -- Display the list of objects
-        if not scene_objects or #scene_objects == 0 then
-            ui:label("No objects found.")
-            return
-        end
-        ui:label("Found " .. #scene_objects .. " objects:")
-        ui:separator()
-        for i, obj in ipairs(scene_objects) do
-            ui:horizontal(function(ui)
-
-                -- Get name
-                name = obj:get_name()
-                if name == nil then
-                    local shape = obj:get_shape()
-                    local shape_type = shape.shape_type
-                    name = "Unnamed " .. shape_type
-                end
-
-                -- Display the name
-                ui:label(name)
-
-                -- Make Go button
-                if ui:button("Go"):clicked() then
-                    Scene:get_host():set_camera_position(obj:get_position())
-                end
-            end)
-        end
-    end)
+    }, add_window) -- add_window is the function that draws the UI
 end
