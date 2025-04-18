@@ -21,6 +21,28 @@ function refresh()
 end
 refresh()
 
+-- Get the name of an object, or make up a name if it doesn't have one
+local function get_or_make_object_name(obj)
+    local name = obj:get_name()
+    if name == nil then
+        local shape = obj:get_shape()
+        local shape_type = shape.shape_type
+        name = "Unnamed " .. shape_type
+    end
+    return name
+end
+
+---- Button Functions ----
+
+local function button_go(ui, obj)
+    Scene:get_host():set_camera_position(obj:get_position())
+end
+
+local button_functions = {
+    ["Go"] = button_go,
+}
+    
+
 -- Does the static UI at the top
 local function add_window_header(ui)
     ui:heading("Scene Manifest")
@@ -42,26 +64,26 @@ local function add_window_objects_header(ui, objs_length)
     ui:separator()
 end
 
+local function add_window_object(ui, obj)
+    ui:horizontal(function(ui)
+        -- Get name
+        name = get_or_make_object_name(obj)
+    
+        -- Display the name
+        ui:label(name)
+    
+        -- Make buttons
+        for name, func in pairs(button_functions) do
+            if ui:button(name):clicked() then
+                func(ui, obj)
+            end
+        end
+    end)
+end
+
 local function add_window_objects(ui, objs)
-    for i, obj in ipairs(scene_objects) do
-        ui:horizontal(function(ui)
-
-            -- Get name
-            name = obj:get_name()
-            if name == nil then
-                local shape = obj:get_shape()
-                local shape_type = shape.shape_type
-                name = "Unnamed " .. shape_type
-            end
-
-            -- Display the name
-            ui:label(name)
-
-            -- Make Go button
-            if ui:button("Go"):clicked() then
-                Scene:get_host():set_camera_position(obj:get_position())
-            end
-        end)
+    for i, obj in ipairs(objs) do
+        add_window_object(ui, obj) -- Call the function to add the object
     end
 end
 
