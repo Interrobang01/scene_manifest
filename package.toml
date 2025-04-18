@@ -1,0 +1,4 @@
+[package]
+name = "Object Menu"
+version = "0.1.0"
+description = "Adds an object menu so you can see all your beautiful objects."
