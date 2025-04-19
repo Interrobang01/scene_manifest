@@ -1,5 +1,39 @@
-local scene_objects = {}
+---- Pagination ----
+local pagination = {}
+pagination.page = 1
+pagination.page_size = 10
+pagination.element_number = 0
+pagination.refresh = function(self, element_number)
+    self.element_number = element_number
+    self.page = self:clamp_page(self.page)
+end
+pagination.get_index_range = function(self)
+    local start_index = (self.page - 1) * self.page_size + 1
+    local end_index = math.min(start_index + self.page_size - 1, self.element_number)
+    
+    return start_index, end_index
+end
+pagination.page_exists = function(self, page)
+    return page > 0 and page <= math.ceil(self.element_number / self.page_size)
+end
+pagination.max_pages = function(self)
+    return math.ceil(self.element_number / self.page_size)
+end
+pagination.change_page = function(self, amount)
+    if self:page_exists(self.page + amount) then
+        self.page = self.page + amount
+    end
+end
+pagination.clamp_page = function(self, page)
+    if (not page) or page < 1 then
+        page = 1
+    elseif page > self:max_pages() then
+        page = self:max_pages()
+    end
+    return page
+end
 
+local scene_objects = {}
 function refresh()
     local found_objects = {}
 
@@ -18,30 +52,316 @@ function refresh()
     -- Update the global list (overwriting previous)
     scene_objects = found_objects
     print("\nRefresh complete. Found " .. #scene_objects .. " objects.")
+
+    -- Refresh pagination
+    pagination:refresh(#scene_objects)
 end
 refresh()
 
 -- Get the name of an object, or make up a name if it doesn't have one
+-- Names must be unique because of dropdown rules
 local function get_or_make_object_name(obj)
+    local function get_size(number)
+        local aspect_ratio_description = ""
+        local aspect_ratio
+        local size = ""
+        if type(number) ~= "number" then -- if it's a vector
+            aspect_ratio = math.max(number.x / number.y, number.y / number.x)
+            number = number:magnitude()
+        end
+
+        if number < 0.01 then
+            size = "Tiny "
+        elseif number < 0.1 then
+            size = "Small "
+        elseif number < 5 then
+            size = ""
+        elseif number < 10 then
+            size = "Big "
+        elseif number < 15 then
+            size = "Large "
+        elseif number < 30 then
+            size = "Huge "
+        else
+            size = "Massive "
+        end
+
+        if aspect_ratio then
+            if aspect_ratio > 3 then
+                aspect_ratio_description = "Thin "
+            elseif aspect_ratio > 1.5 then
+                aspect_ratio_description = "Narrow "
+            end
+        end
+
+        return size..aspect_ratio_description
+    end
+
+    local function get_color(color)
+        local color_name = ""
+        if not color then
+            return ""
+        end
+
+        -- Check brightness
+        local brightness = (color.r + color.g + color.b) / 3
+        if brightness < 0.3 then
+            color_name = "Dark "
+        elseif brightness > 0.7 then
+            color_name = "Light "
+        end
+
+        -- Find dominant color
+        if color.r > color.g and color.r > color.b then
+            color_name = color_name .. "Red "
+        elseif color.g > color.r and color.g > color.b then
+            color_name = color_name .. "Green "
+        elseif color.b > color.r and color.b > color.g then
+            color_name = color_name .. "Blue "
+        elseif color.r > 0.5 and color.g > 0.5 then
+            color_name = color_name .. "Yellow "
+        elseif color.g > 0.5 and color.b > 0.5 then
+            color_name = color_name .. "Cyan "
+        elseif color.r > 0.5 and color.b > 0.5 then
+            color_name = color_name .. "Purple "
+        else
+            color_name = color_name .. "Gray "
+        end
+
+        return color_name
+    end
+
     local name = obj:get_name()
     if name == nil then
         local shape = obj:get_shape()
         local shape_type = shape.shape_type
-        name = "Unnamed " .. shape_type
+        
+        -- Capitalize
+        shape_type = shape_type:sub(1, 1):upper() .. shape_type:sub(2)
+
+        -- Make a name based on the shape type
+        if shape_type == "Polygon" then
+            -- Get bounding box
+            local min_x, min_y, max_x, max_y = shape.points[1].x, shape.points[1].y, shape.points[1].x, shape.points[1].y
+            for i = 2, #shape.points do
+                local point = shape.points[i]
+                min_x = math.min(min_x, point.x)
+                min_y = math.min(min_y, point.y)
+                max_x = math.max(max_x, point.x)
+                max_y = math.max(max_y, point.y)
+            end
+            local width = max_x - min_x
+            local height = max_y - min_y
+            shape_type = get_size(vec2(width, height)) .. #shape.points .. "-gon"
+        end
+        if shape_type == "Circle" or shape_type == "Capsule" then
+            shape_type = get_size(shape.radius) .. shape_type
+        end
+        if shape_type == "Box" then
+            shape_type = get_size(shape.size) .. shape_type
+        end
+
+        shape_type = get_color(obj:get_color()) .. shape_type
+
+        name = shape_type
     end
+    name = name .. " (" .. obj.id .. ")"
     return name
 end
+
 
 ---- Button Functions ----
 
 local function button_go(ui, obj)
-    Scene:get_host():set_camera_position(obj:get_position())
+    if ui:button("Go"):clicked() then
+        Scene:get_host():set_camera_position(obj:get_position())
+    end
+end
+
+local current_copy = nil
+local function button_copy(ui, obj)
+    if ui:button("Copy"):clicked() then
+        current_copy = obj
+    end
+    -- local _, new_value = ui:radio_value(current_value, tostring(obj.id), "Copy")
+    -- if new_value ~= current_copy then
+    --     current_copy = new_value
+    -- end
 end
 
 local button_functions = {
-    ["Go"] = button_go,
+    button_go,
+    button_copy,
 }
     
+---- Info Functions ----
+
+--[[
+These functions are multi-purpose:
+- The first purpose is to display UI for the given info type
+    - This is done by passing `ui` to the function and not passing `paste`
+- The second purpose is to set the object's info type to `paste`
+    - This is done by passing `paste` to the function
+- The third purpose is to get the object's info type, for `paste`ing
+    - This is done by passing nil as `ui`, passing `obj`, and not passing `paste`
+- The fourth purpose is to return a boolean determining whether to show the info type at all
+    - This is done by passing `ui` as "show" and not passing `paste`
+]]
+
+local function info_shape(ui, obj, paste)
+    if paste then
+        obj:set_shape(paste)
+    end
+    
+    local shape = obj:get_shape()
+    
+    if not ui then
+        return shape
+    end
+    if ui == "show" then
+        return true
+    end
+
+    ui:label("Shape Type: " .. shape.shape_type)
+end
+
+local function info_position(ui, obj, paste)
+    if paste then
+        obj:set_position(paste)
+    end
+
+    local position = obj:get_position()
+
+    if not ui then
+        return position
+    end
+    if ui == "show" then
+        return true
+    end
+
+    -- Format position
+    local x = string.format("%.1f", position.x)
+    local y = string.format("%.1f", position.y)
+
+    -- Set label
+    ui:label("Position: (" .. x .. ", " .. y .. ")")
+
+    -- Set position field
+    local _, new_x = ui:text_edit_singleline(x)
+    local _, new_y = ui:text_edit_singleline(y)
+    if new_x ~= x or new_y ~= y then
+        -- Set new position
+        local new_position = vec2(tonumber(new_x), tonumber(new_y))
+        obj:set_position(new_position)
+    end
+end
+
+local function info_orientation(ui, obj, paste)
+    if paste then
+        obj:set_angle(paste)
+    end
+
+    local angle = obj:get_angle()
+
+    if not ui then
+        return angle
+    end
+    if ui == "show" then
+        return true
+    end
+
+    -- Choose word based on angle
+    local orientation = ""
+    if angle < math.pi/4 and angle > -math.pi/4 then
+        orientation = "Up"
+    elseif angle < 3*math.pi/4 and angle > math.pi/4 then
+        orientation = "Left"
+    elseif angle < -3*math.pi/4 or angle > 3*math.pi/4 then
+        orientation = "Down"
+    else
+        orientation = "Right"
+    end
+
+    -- Set label
+    ui:label("Facing: " .. orientation)--.. string.format("%.1f", angle))
+
+    -- Make rotation buttons
+    if ui:button("Rotate CCW"):clicked() then
+        obj:set_angle(obj:get_angle() + math.pi/2)
+    end
+    if ui:button("Rotate CW"):clicked() then
+        obj:set_angle(obj:get_angle() - math.pi/2)
+    end
+end
+
+-- Only display velocity when it is non-zero
+local function info_velocity(ui, obj, paste)
+    if paste then
+        obj:set_linear_velocity(paste)
+    end
+
+    local velocity = obj:get_linear_velocity()
+    
+    if not ui then
+        return velocity
+    end
+    if ui == "show" then
+        return obj:get_linear_velocity():magnitude() > 0.01 or math.abs(obj:get_angular_velocity()) > 0.01
+    end
+
+    --if velocity:magnitude() > 0.01 then
+        local x = string.format("%.1f", velocity.x)
+        local y = string.format("%.1f", velocity.y)
+        ui:label("Linear Velocity: (" .. x .. ", " .. y .. ")")
+    --end
+    
+    local angular_velocity = obj:get_angular_velocity()
+    --if math.abs(angular_velocity) > 0.01 then
+        local a = string.format("%.1f", angular_velocity)
+        ui:label("Angular Velocity: " .. a)
+    --end
+end
+
+local function info_material(ui, obj, paste)
+    if paste then
+        obj:set_friction(paste[1])
+        obj:set_restitution(paste[2])
+        obj:set_density(paste[3])
+    end
+    
+    local friction = obj:get_friction()
+    local restitution = obj:get_restitution()
+    local density = obj:get_density()
+    
+    if not ui then
+        return {friction, restitution, density}
+    end
+
+    if ui == "show" then
+        -- Only display material properties when they are not default
+        local epsilon = 0.0001
+        return math.abs(friction - 0.3) > epsilon or math.abs(restitution - 0.3) > epsilon or math.abs(density - 1.0) > epsilon
+    end
+
+    -- Only display material properties when they are not default
+    local epsilon = 0.0001
+    --if math.abs(friction - 0.3) > epsilon or math.abs(restitution - 0.3) > epsilon or math.abs(density - 1.0) > epsilon then
+        ui:vertical(function(ui)
+            
+            ui:label("Friction: " .. string.format("%.2f", friction))
+            ui:label("Restitution: " .. string.format("%.2f", restitution))
+            ui:label("Density: " .. string.format("%.2f", density))
+        end)
+    --end
+end
+
+local info_functions = {
+    info_position,
+    info_orientation,
+    info_velocity,
+    --info_shape,
+    info_material,
+}
 
 -- Does the static UI at the top
 local function add_window_header(ui)
@@ -59,37 +379,158 @@ local function add_window_header(ui)
     ui:add_space(10)
 end
 
-local function add_window_objects_header(ui, objs_length)
-    ui:label("Found " .. #scene_objects .. " objects:")
-    ui:separator()
+local pins = {}
+local function add_pin_button(ui, id, index)
+    local combined_index = id..'-'..index
+    local _, new_checked = ui:toggle(pins[combined_index], "Pin")
+    if new_checked == false then
+        pins[combined_index] = nil
+    else
+        pins[combined_index] = true
+    end
 end
 
-local function add_window_object(ui, obj)
+local function add_paste_button(ui, obj, func)
+    if ui:button("Paste"):clicked() and current_copy then
+        local copy_obj = Scene:get_object(current_copy.id)
+        if copy_obj then
+            local copy = func(nil, copy_obj)
+            func(nil, obj, copy) -- paste
+        end
+    end
+end
+
+local function add_info_function(ui, obj, func_index, func)
     ui:horizontal(function(ui)
+        add_pin_button(ui, obj.id, func_index)
+        add_paste_button(ui, obj, func)
+        
+        func(ui, obj)
+    end)
+end
+
+local show_all = false
+local function add_info_functions(ui, obj)
+    for index, func in pairs(info_functions) do
+        if show_all or pins[obj.id..'-'..index] or func("show", obj) then
+            add_info_function(ui, obj, index, func)
+        end
+    end
+end
+
+local expand_all = false
+local function add_window_object(ui, obj)
+    if Scene:get_object(obj.id) == nil then
+        return
+    end
+    ui:horizontal(function(ui)
+        -- Make buttons
+        for _, func in ipairs(button_functions) do
+            func(ui, obj)
+        end
+
         -- Get name
         name = get_or_make_object_name(obj)
-    
-        -- Display the name
-        ui:label(name)
-    
-        -- Make buttons
-        for name, func in pairs(button_functions) do
-            if ui:button(name):clicked() then
-                func(ui, obj)
-            end
+        
+        -- Make info dropdown as name
+        -- Or don't if expand_all is true
+        if not expand_all then
+            ui:collapsing_header(name, function(ui)
+                add_info_functions(ui, obj)
+            end)
+        else
+            ui:label(name)
+            ui:vertical(function(ui)
+                add_info_functions(ui, obj)
+            end)
         end
     end)
 end
 
 local function add_window_objects(ui, objs)
-    for i, obj in ipairs(objs) do
-        add_window_object(ui, obj) -- Call the function to add the object
+    local start_index, end_index = pagination:get_index_range()
+    for i = start_index, end_index do
+        obj = objs[i]
+        if obj and not obj:is_destroyed() then
+            add_window_object(ui, obj) -- Call the function to add the object
+        end
     end
+end
+
+local function add_window_decrement_page_button(ui)
+    if ui:button("-"):clicked() then
+        pagination:change_page(-1)
+    end
+end
+
+local function add_window_increment_page_button(ui)
+    if ui:button("+"):clicked() then
+        pagination:change_page(1)
+    end
+end
+
+local last_text = ""
+local function add_window_page_text_input(ui)
+    local _, new_text = ui:text_edit_singleline(last_text)
+    local new_page = tonumber(new_text)
+    new_page = pagination:clamp_page(new_page)
+    if new_text ~= last_text and new_page and pagination:page_exists(new_page) then
+        pagination.page = new_page
+    end
+    last_text = tostring(pagination.page)
+end
+
+local function add_window_objects_header(ui, objs_length)
+    -- Pagination horizontal
+    ui:horizontal(function(ui)
+        if pagination:max_pages() > 1 then
+            add_window_decrement_page_button(ui)
+            ui:label("Page ")
+            add_window_page_text_input(ui)
+            ui:label(" of " .. pagination:max_pages())
+            add_window_increment_page_button(ui)
+        end
+
+        ui:label("Found " .. #scene_objects .. " object" .. (#scene_objects == 1 and "" or "s"))
+
+    end)
+
+    -- Options horizontal
+    ui:horizontal(function(ui)
+        local response, new_expand_all = ui:toggle(expand_all, "Expand All");
+        expand_all = new_expand_all
+
+        local response, new_show_all = ui:toggle(show_all, "Always Show Properties");
+        show_all = new_show_all
+    end)
+    ui:separator()
 end
 
 local function add_window_objects_empty_header(ui)
     ui:label("No objects found.")
     ui:separator()
+end
+
+local function add_window_objects_pins(ui)
+    local pinned_something = false
+    for id_and_index, pinned in pairs(pins) do
+        if pinned then
+            local id, index = id_and_index:match("([^%-]+)%-(.+)")
+            local obj = Scene:get_object(tonumber(id))
+            if obj then
+                pinned_something = true
+                add_info_function(ui, obj, index, info_functions[tonumber(index)]) -- Call the function to add the object property
+            else
+                pins[id_and_index] = nil -- Unpin if the object is destroyed
+            end
+        else
+            pins[id_and_index] = nil -- Clear this pin if it's not pinned
+        end
+    end
+
+    if pinned_something then
+        ui:separator()
+    end
 end
 
 local function add_window(ui)
@@ -98,7 +539,10 @@ local function add_window(ui)
     -- Display the list of objects
     if scene_objects and #scene_objects > 0 then
         add_window_objects_header(ui, #scene_objects)
-        add_window_objects(ui, scene_objects)
+        add_window_objects_pins(ui)
+        ui:scroll_area({}, function(ui)
+            add_window_objects(ui, scene_objects)
+        end)
     else
         add_window_objects_empty_header(ui) -- Say that there are no objects
     end

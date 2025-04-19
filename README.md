@@ -1,3 +1,3 @@
-# Object Menu
+# Scene Manifest
 
-adds an object menu
+adds a menu showing all the contents of the scene
