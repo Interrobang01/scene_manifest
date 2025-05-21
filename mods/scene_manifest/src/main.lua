@@ -1,3 +1,24 @@
+local function iblib_split(inputstr, sep)
+    if sep == nil then
+        sep = "%s"
+    end
+    local t = {}
+    for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+        table.insert(t, str)
+    end
+    return t
+end
+
+-- Serializing pins is needed so the set of pins can't have duplicate elements
+local function serialize_pin(obj, index)
+    local type = obj:get_type()
+    local id = obj.id
+    return type..'-'..id..'-'..index
+end
+local function deserialize_pin(pin)
+    return iblib_split(pin, "-")
+end
+
 ---- Pagination ----
 local pagination = {}
 pagination.page = 1
@@ -33,25 +54,40 @@ pagination.clamp_page = function(self, page)
     return page
 end
 
+local show_objects = true
+local show_attachments = false
 local scene_objects = {}
 function refresh()
-    local found_objects = {}
+    local found_entities = {}
 
     if not Scene then
         print("Scene is not available.")
         return
     end
 
-    found_objects = Scene:get_all_objects()
-
-    -- Sort by x position
-    table.sort(found_objects, function(a, b)
-        return a:get_position().x < b:get_position().x
-    end)
+    if show_objects then
+        local found_objects = Scene:get_all_objects()
+        -- Sort by x position
+        table.sort(found_objects, function(a, b)
+            return a:get_position().x < b:get_position().x
+        end)
+        for _, obj in ipairs(found_objects) do
+            table.insert(found_entities, obj)
+        end
+    end
+    if show_attachments then
+        local found_attachments = Scene:get_all_attachments()
+        -- Sort by x position
+        table.sort(found_attachments, function(a, b)
+            return a:get_local_position().x < b:get_local_position().x
+        end)
+        for _, att in ipairs(found_attachments) do
+            table.insert(found_entities, att)
+        end
+    end
 
     -- Update the global list (overwriting previous)
-    scene_objects = found_objects
-    print("\nRefresh complete. Found " .. #scene_objects .. " objects.")
+    scene_objects = found_entities
 
     -- Refresh pagination
     pagination:refresh(#scene_objects)
@@ -133,37 +169,42 @@ local function get_or_make_object_name(obj)
 
     local name = obj:get_name()
     if name == nil then
-        local shape = obj:get_shape()
-        local shape_type = shape.shape_type
-        
-        -- Capitalize
-        shape_type = shape_type:sub(1, 1):upper() .. shape_type:sub(2)
+        if obj:get_type() == "object" then
+            local shape = obj:get_shape()
+            local shape_type = shape.shape_type
+            
+            -- Capitalize
+            shape_type = shape_type:sub(1, 1):upper() .. shape_type:sub(2)
 
-        -- Make a name based on the shape type
-        if shape_type == "Polygon" then
-            -- Get bounding box
-            local min_x, min_y, max_x, max_y = shape.points[1].x, shape.points[1].y, shape.points[1].x, shape.points[1].y
-            for i = 2, #shape.points do
-                local point = shape.points[i]
-                min_x = math.min(min_x, point.x)
-                min_y = math.min(min_y, point.y)
-                max_x = math.max(max_x, point.x)
-                max_y = math.max(max_y, point.y)
+            -- Make a name based on the shape type
+            if shape_type == "Polygon" then
+                -- Get bounding box
+                local min_x, min_y, max_x, max_y = shape.points[1].x, shape.points[1].y, shape.points[1].x, shape.points[1].y
+                for i = 2, #shape.points do
+                    local point = shape.points[i]
+                    min_x = math.min(min_x, point.x)
+                    min_y = math.min(min_y, point.y)
+                    max_x = math.max(max_x, point.x)
+                    max_y = math.max(max_y, point.y)
+                end
+                local width = max_x - min_x
+                local height = max_y - min_y
+                shape_type = get_size(vec2(width, height)) .. #shape.points .. "-gon"
             end
-            local width = max_x - min_x
-            local height = max_y - min_y
-            shape_type = get_size(vec2(width, height)) .. #shape.points .. "-gon"
-        end
-        if shape_type == "Circle" or shape_type == "Capsule" then
-            shape_type = get_size(shape.radius) .. shape_type
-        end
-        if shape_type == "Box" then
-            shape_type = get_size(shape.size) .. shape_type
-        end
+            if shape_type == "Circle" or shape_type == "Capsule" then
+                shape_type = get_size(shape.radius) .. shape_type
+            end
+            if shape_type == "Box" then
+                shape_type = get_size(shape.size) .. shape_type
+            end
 
-        shape_type = get_color(obj:get_color()) .. shape_type
+            shape_type = get_color(obj:get_color()) .. shape_type
 
-        name = shape_type
+            name = shape_type
+        else
+            name = obj:get_type()
+            name = name:sub(1, 1):upper() .. name:sub(2)
+        end
     end
     name = name .. " (" .. obj.id .. ")"
     return name
@@ -195,6 +236,7 @@ local button_functions = {
 }
     
 ---- Info Functions ----
+local show_all = false
 
 local info_shape = {}
 info_shape.set_value = function(self, obj, value)
@@ -302,7 +344,10 @@ info_velocity.set_value = function(self, obj, value)
 end
 info_velocity.get_visible = function(self, obj)
     local is_object = obj:get_type() == "object"
-    return is_object and (obj:get_linear_velocity():magnitude() > 0.01 or math.abs(obj:get_angular_velocity()) > 0.01)
+    if not is_object then
+        return is_object
+    end
+    return show_all or (obj:get_linear_velocity():magnitude() > 0.01 or math.abs(obj:get_angular_velocity()) > 0.01)
 end
 info_velocity.get_value = function(self, obj)
     return obj:get_linear_velocity()
@@ -326,11 +371,14 @@ info_material.set_value = function(self, obj, value)
 end
 info_material.get_visible = function(self, obj)
     local is_object = obj:get_type() == "object"
+    if not is_object then
+        return is_object
+    end
     local friction = obj:get_friction()
     local restitution = obj:get_restitution()
     local density = obj:get_density()
     local epsilon = 0.0001
-    return is_object and (math.abs(friction - 0.3) > epsilon or math.abs(restitution - 0.3) > epsilon or math.abs(density - 1.0) > epsilon)
+    return show_all or (math.abs(friction - 0.3) > epsilon or math.abs(restitution - 0.3) > epsilon or math.abs(density - 1.0) > epsilon)
 end
 info_material.get_value = function(self, obj)
     return {obj:get_friction(), obj:get_restitution(), obj:get_density()}
@@ -407,21 +455,20 @@ local function add_window_header(ui)
 end
 
 local pins = {}
-local function add_pin_button(ui, id, index)
-    local combined_index = id..'-'..index
-    local _, new_checked = ui:toggle(pins[combined_index], "Pin")
+local function add_pin_button(ui, obj, index)
+    local serialized_pin = serialize_pin(obj, index)
+    local _, new_checked = ui:toggle(pins[serialized_pin], "Pin")
     if new_checked == false then
-        pins[combined_index] = nil
+        pins[serialized_pin] = nil
     else
-        pins[combined_index] = true
+        pins[serialized_pin] = true
     end
 end
 
 local function add_paste_button(ui, obj, func)
     if ui:button("Paste"):clicked() and current_copy then
-        local copy_obj = Scene:get_object(current_copy.id)
-        if copy_obj then
-            local copy = func:get_value(copy_obj)
+        if not current_copy:is_destroyed() then
+            local copy = func:get_value(current_copy)
             func:set_value(obj, copy) -- paste
         end
     end
@@ -429,17 +476,16 @@ end
 
 local function add_info_function(ui, obj, func_index, func)
     ui:horizontal(function(ui)
-        add_pin_button(ui, obj.id, func_index)
+        add_pin_button(ui, obj, func_index)
         add_paste_button(ui, obj, func)
         
         func:display(ui, obj)
     end)
 end
 
-local show_all = false
 local function add_info_functions(ui, obj)
     for index, func in pairs(info_functions) do
-        if show_all or pins[obj.id..'-'..index] or func:get_visible(obj) then
+        if pins[serialize_pin(obj, index)] or func:get_visible(obj) then
             add_info_function(ui, obj, index, func)
         end
     end
@@ -447,7 +493,7 @@ end
 
 local expand_all = false
 local function add_window_object(ui, obj)
-    if Scene:get_object(obj.id) == nil then
+    if obj:is_destroyed() then
         return
     end
     ui:horizontal(function(ui)
@@ -530,6 +576,18 @@ local function add_window_objects_header(ui, objs_length)
         local response, new_show_all = ui:toggle(show_all, "Always Show Properties");
         show_all = new_show_all
     end)
+    -- Second options horizontal
+    ui:horizontal(function(ui)
+        local obj_response, new_show_objects = ui:toggle(show_objects, "Show Objects");
+        show_objects = new_show_objects
+
+        local att_response, new_show_attachments = ui:toggle(show_attachments, "Show Attachments");
+        show_attachments = new_show_attachments
+
+        if obj_response:clicked() or att_response:clicked() then
+            refresh()
+        end
+    end)
     ui:separator()
 end
 
@@ -540,18 +598,18 @@ end
 
 local function add_window_objects_pins(ui)
     local pinned_something = false
-    for id_and_index, pinned in pairs(pins) do
+    for pin, pinned in pairs(pins) do
         if pinned then
-            local id, index = id_and_index:match("([^%-]+)%-(.+)")
+            local type, id, index = deserialize_pin(pin)
             local obj = Scene:get_object(tonumber(id))
             if obj then
                 pinned_something = true
                 add_info_function(ui, obj, index, info_functions[tonumber(index)]) -- Call the function to add the object property
             else
-                pins[id_and_index] = nil -- Unpin if the object is destroyed
+                pins[pin] = nil -- Unpin if the object is destroyed
             end
         else
-            pins[id_and_index] = nil -- Clear this pin if it's not pinned
+            pins[pin] = nil -- Clear this pin if it's not pinned
         end
     end
 
@@ -561,17 +619,20 @@ local function add_window_objects_pins(ui)
 end
 
 local function add_window(ui)
+    if not Scene then
+        ui:label("Scene Manifest is only available to the host.")
+        return
+    end
+
     add_window_header(ui)
 
     -- Display the list of objects
+    add_window_objects_header(ui, #scene_objects)
     if scene_objects and #scene_objects > 0 then
-        add_window_objects_header(ui, #scene_objects)
         add_window_objects_pins(ui)
         ui:scroll_area({}, function(ui)
             add_window_objects(ui, scene_objects)
         end)
-    else
-        add_window_objects_empty_header(ui) -- Say that there are no objects
     end
 end
 
