@@ -398,7 +398,6 @@ local function add_window_header(ui)
 
     -- Header row with refresh button
     ui:horizontal(function(ui)
-        ui:label("Refreshes the list of objects")
         if ui:button("Refresh"):clicked() then
             refresh()
         end
