@@ -1,3 +1,7 @@
+--[[
+Adds a UI to manage the contents of the scene.
+--]]
+
 local function iblib_split(inputstr, sep)
     if sep == nil then
         sep = "%s"
@@ -54,6 +58,9 @@ pagination.clamp_page = function(self, page)
     return page
 end
 
+-- Table to track destroy confirmations per object for info_destroy.display
+local destroy_confirmations = {}
+
 local show_objects = true
 local show_attachments = false
 local scene_objects = {}
@@ -61,7 +68,7 @@ local function refresh()
     local found_entities = {}
 
     if not Scene then
-        print("Scene is not available.")
+        print("Can't refresh: Scene is not available.")
         return
     end
 
@@ -91,122 +98,127 @@ local function refresh()
 
     -- Refresh pagination
     pagination:refresh(#scene_objects)
+
+    -- Clear destroy confirmation list
+    destroy_confirmations = {}
 end
 refresh()
+
+-- Get the size description for a number or vector
+local function get_size(number)
+    local aspect_ratio_description = ""
+    local aspect_ratio
+    local size = ""
+    if type(number) ~= "number" then -- if it's a vector
+        aspect_ratio = math.max(number.x / number.y, number.y / number.x)
+        number = number:magnitude()
+    end
+
+    if number < 0.01 then
+        size = "Tiny "
+    elseif number < 0.1 then
+        size = "Small "
+    elseif number < 5 then
+        size = ""
+    elseif number < 10 then
+        size = "Big "
+    elseif number < 15 then
+        size = "Large "
+    elseif number < 30 then
+        size = "Huge "
+    else
+        size = "Massive "
+    end
+
+    if aspect_ratio then
+        if aspect_ratio > 3 then
+            aspect_ratio_description = "Thin "
+        elseif aspect_ratio > 1.5 then
+            aspect_ratio_description = "Narrow "
+        end
+    end
+
+    return size..aspect_ratio_description
+end
+
+-- Get the color description for a color table
+local function get_color(color)
+    local color_name = ""
+    if not color then
+        return ""
+    end
+
+    -- Check brightness
+    local brightness = (color.r + color.g + color.b) / 3
+    if brightness < 0.3 then
+        color_name = "Dark "
+    elseif brightness > 0.7 then
+        color_name = "Light "
+    end
+
+    -- Find dominant color
+    if color.r > color.g and color.r > color.b then
+        color_name = color_name .. "Red "
+    elseif color.g > color.r and color.g > color.b then
+        color_name = color_name .. "Green "
+    elseif color.b > color.r and color.b > color.g then
+        color_name = color_name .. "Blue "
+    elseif color.r > 0.5 and color.g > 0.5 then
+        color_name = color_name .. "Yellow "
+    elseif color.g > 0.5 and color.b > 0.5 then
+        color_name = color_name .. "Cyan "
+    elseif color.r > 0.5 and color.b > 0.5 then
+        color_name = color_name .. "Purple "
+    else
+        color_name = color_name .. "Gray "
+    end
+
+    return color_name
+end
+
+-- Get the shape type name for an object shape
+local function get_shape_type_name(shape, obj)
+    local shape_type = shape.shape_type
+    -- Capitalize
+    shape_type = shape_type:sub(1, 1):upper() .. shape_type:sub(2)
+
+    if shape_type == "Polygon" then
+        -- Get bounding box
+        local min_x, min_y, max_x, max_y = shape.points[1].x, shape.points[1].y, shape.points[1].x, shape.points[1].y
+        for i = 2, #shape.points do
+            local point = shape.points[i]
+            min_x = math.min(min_x, point.x)
+            min_y = math.min(min_y, point.y)
+            max_x = math.max(max_x, point.x)
+            max_y = math.max(max_y, point.y)
+        end
+        local width = max_x - min_x
+        local height = max_y - min_y
+        shape_type = get_size(vec2(width, height)) .. #shape.points .. "-gon"
+    elseif shape_type == "Circle" or shape_type == "Capsule" then
+        shape_type = get_size(shape.radius) .. shape_type
+    elseif shape_type == "Box" then
+        shape_type = get_size(shape.size) .. shape_type
+    end
+
+    shape_type = get_color(obj:get_color()) .. shape_type
+    return shape_type
+end
 
 -- Get the name of an object, or make up a name if it doesn't have one
 -- Names must be unique because of dropdown rules
 local function get_or_make_object_name(obj)
-    local function get_size(number)
-        local aspect_ratio_description = ""
-        local aspect_ratio
-        local size = ""
-        if type(number) ~= "number" then -- if it's a vector
-            aspect_ratio = math.max(number.x / number.y, number.y / number.x)
-            number = number:magnitude()
-        end
-
-        if number < 0.01 then
-            size = "Tiny "
-        elseif number < 0.1 then
-            size = "Small "
-        elseif number < 5 then
-            size = ""
-        elseif number < 10 then
-            size = "Big "
-        elseif number < 15 then
-            size = "Large "
-        elseif number < 30 then
-            size = "Huge "
-        else
-            size = "Massive "
-        end
-
-        if aspect_ratio then
-            if aspect_ratio > 3 then
-                aspect_ratio_description = "Thin "
-            elseif aspect_ratio > 1.5 then
-                aspect_ratio_description = "Narrow "
-            end
-        end
-
-        return size..aspect_ratio_description
-    end
-
-    local function get_color(color)
-        local color_name = ""
-        if not color then
-            return ""
-        end
-
-        -- Check brightness
-        local brightness = (color.r + color.g + color.b) / 3
-        if brightness < 0.3 then
-            color_name = "Dark "
-        elseif brightness > 0.7 then
-            color_name = "Light "
-        end
-
-        -- Find dominant color
-        if color.r > color.g and color.r > color.b then
-            color_name = color_name .. "Red "
-        elseif color.g > color.r and color.g > color.b then
-            color_name = color_name .. "Green "
-        elseif color.b > color.r and color.b > color.g then
-            color_name = color_name .. "Blue "
-        elseif color.r > 0.5 and color.g > 0.5 then
-            color_name = color_name .. "Yellow "
-        elseif color.g > 0.5 and color.b > 0.5 then
-            color_name = color_name .. "Cyan "
-        elseif color.r > 0.5 and color.b > 0.5 then
-            color_name = color_name .. "Purple "
-        else
-            color_name = color_name .. "Gray "
-        end
-
-        return color_name
-    end
-
     local name = obj:get_name()
     if name == nil then
         if obj:get_type() == "object" then
             local shape = obj:get_shape()
-            local shape_type = shape.shape_type
-            
-            -- Capitalize
-            shape_type = shape_type:sub(1, 1):upper() .. shape_type:sub(2)
-
-            -- Make a name based on the shape type
-            if shape_type == "Polygon" then
-                -- Get bounding box
-                local min_x, min_y, max_x, max_y = shape.points[1].x, shape.points[1].y, shape.points[1].x, shape.points[1].y
-                for i = 2, #shape.points do
-                    local point = shape.points[i]
-                    min_x = math.min(min_x, point.x)
-                    min_y = math.min(min_y, point.y)
-                    max_x = math.max(max_x, point.x)
-                    max_y = math.max(max_y, point.y)
-                end
-                local width = max_x - min_x
-                local height = max_y - min_y
-                shape_type = get_size(vec2(width, height)) .. #shape.points .. "-gon"
-            end
-            if shape_type == "Circle" or shape_type == "Capsule" then
-                shape_type = get_size(shape.radius) .. shape_type
-            end
-            if shape_type == "Box" then
-                shape_type = get_size(shape.size) .. shape_type
-            end
-
-            shape_type = get_color(obj:get_color()) .. shape_type
-
-            name = shape_type
+            name = get_shape_type_name(shape, obj)
         else
             name = obj:get_type()
             name = name:sub(1, 1):upper() .. name:sub(2)
         end
     end
-    name = name .. " (" .. obj.id .. ")"
+    name = name .. " (" .. obj:get_type():sub(1, 1) .. obj.id .. ")"
     return name
 end
 
@@ -424,8 +436,26 @@ info_destroy.get_value = function(self, obj)
     return obj:is_destroyed()
 end
 info_destroy.display = function(self, ui, obj)
-    if ui:button("Destroy"):clicked() then
-        self:set_value(obj, true)
+    local obj_id = obj.id
+    -- If confirmation is pending for this object
+    if destroy_confirmations[obj_id] then
+        ui:horizontal(function(ui)
+            if ui:button("Confirm"):clicked() then
+                self:set_value(obj, true)
+                destroy_confirmations[obj_id] = nil
+            end
+            if ui:button("Cancel"):clicked() then
+                destroy_confirmations[obj_id] = nil
+            end
+        end)
+    else
+        if ui:button("Destroy"):clicked() then
+            destroy_confirmations[obj_id] = true
+        end
+    end
+    -- Clean up if object is destroyed
+    if obj:is_destroyed() then
+        destroy_confirmations[obj_id] = nil
     end
 end
 
@@ -484,7 +514,7 @@ local function add_info_function(ui, obj, func_index, func)
 end
 
 local function add_info_functions(ui, obj)
-    for index, func in pairs(info_functions) do
+    for index, func in ipairs(info_functions) do
         if pins[serialize_pin(obj, index)] or func:get_visible(obj) then
             add_info_function(ui, obj, index, func)
         end
