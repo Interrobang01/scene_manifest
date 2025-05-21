@@ -196,49 +196,42 @@ local button_functions = {
     
 ---- Info Functions ----
 
---[[
-These functions are multi-purpose:
-- The first purpose is to display UI for the given info type
-    - This is done by passing `ui` to the function and not passing `paste`
-- The second purpose is to set the object's info type to `paste`
-    - This is done by passing `paste` to the function
-- The third purpose is to get the object's info type, for `paste`ing
-    - This is done by passing nil as `ui`, passing `obj`, and not passing `paste`
-- The fourth purpose is to return a boolean determining whether to show the info type at all
-    - This is done by passing `ui` as "show" and not passing `paste`
-]]
-
-local function info_shape(ui, obj, paste)
-    if paste then
-        obj:set_shape(paste)
-    end
-    
-    local shape = obj:get_shape()
-    
-    if not ui then
-        return shape
-    end
-    if ui == "show" then
-        return true
-    end
-
-    ui:label("Shape Type: " .. shape.shape_type)
+local info_shape = {}
+info_shape.set_value = function(self, obj, value)
+    obj:set_shape(value)
+end
+info_shape.get_visible = function(self, obj)
+    return obj:get_type() == "object"
+end
+info_shape.get_value = function(self, obj)
+    return obj:get_shape()
+end
+info_shape.display = function(self, ui, obj)
+    ui:label("Shape Type: " .. obj:get_shape().shape_type)
 end
 
-local function info_position(ui, obj, paste)
-    if paste then
-        obj:set_position(paste)
+local info_position = {}
+info_position.set_value = function(self, obj, value)
+    local is_object = obj:get_type() == "object"
+    if is_object then
+        obj:set_position(value)
+    else
+        obj:set_local_position(value)
     end
-
-    local position = obj:get_position()
-
-    if not ui then
-        return position
+end
+info_position.get_visible = function(self, obj)
+    return true
+end
+info_position.get_value = function(self, obj)
+    local is_object = obj:get_type() == "object"
+    if is_object then
+        return obj:get_position()
+    else
+        return obj:get_local_position()
     end
-    if ui == "show" then
-        return true
-    end
-
+end
+info_position.display = function(self, ui, obj)
+    local position = self:get_value(obj)
     -- Format position
     local x = string.format("%.1f", position.x)
     local y = string.format("%.1f", position.y)
@@ -252,23 +245,32 @@ local function info_position(ui, obj, paste)
     if new_x ~= x or new_y ~= y then
         -- Set new position
         local new_position = vec2(tonumber(new_x), tonumber(new_y))
-        obj:set_position(new_position)
+        self:set_value(obj, new_position)
     end
 end
 
-local function info_orientation(ui, obj, paste)
-    if paste then
-        obj:set_angle(paste)
+local info_orientation = {}
+info_orientation.set_value = function(self, obj, value)
+    local is_object = obj:get_type() == "object"
+    if is_object then
+        obj:set_angle(value)
+    else
+        obj:set_local_angle(value)
     end
-
-    local angle = obj:get_angle()
-
-    if not ui then
-        return angle
+end
+info_orientation.get_visible = function(self, obj)
+    return true
+end
+info_orientation.get_value = function(self, obj)
+    local is_object = obj:get_type() == "object"
+    if is_object then
+        return obj:get_angle()
+    else
+        return obj:get_local_angle()
     end
-    if ui == "show" then
-        return true
-    end
+end
+info_orientation.display = function(self, ui, obj)
+    local angle = self:get_value(obj)
 
     -- Choose word based on angle
     local orientation = ""
@@ -287,80 +289,106 @@ local function info_orientation(ui, obj, paste)
 
     -- Make rotation buttons
     if ui:button("Rotate CCW"):clicked() then
-        obj:set_angle(obj:get_angle() + math.pi/2)
+        self:set_value(obj, self:get_value(obj) + math.pi/2)
     end
     if ui:button("Rotate CW"):clicked() then
-        obj:set_angle(obj:get_angle() - math.pi/2)
+        self:set_value(obj, self:get_value(obj) + math.pi/2)
     end
 end
 
--- Only display velocity when it is non-zero
-local function info_velocity(ui, obj, paste)
-    if paste then
-        obj:set_linear_velocity(paste)
-    end
-
+local info_velocity = {}
+info_velocity.set_value = function(self, obj, value)
+    obj:set_linear_velocity(value)
+end
+info_velocity.get_visible = function(self, obj)
+    local is_object = obj:get_type() == "object"
+    return is_object and (obj:get_linear_velocity():magnitude() > 0.01 or math.abs(obj:get_angular_velocity()) > 0.01)
+end
+info_velocity.get_value = function(self, obj)
+    return obj:get_linear_velocity()
+end
+info_velocity.display = function(self, ui, obj)
     local velocity = obj:get_linear_velocity()
-    
-    if not ui then
-        return velocity
-    end
-    if ui == "show" then
-        return obj:get_linear_velocity():magnitude() > 0.01 or math.abs(obj:get_angular_velocity()) > 0.01
-    end
-
-    --if velocity:magnitude() > 0.01 then
-        local x = string.format("%.1f", velocity.x)
-        local y = string.format("%.1f", velocity.y)
-        ui:label("Linear Velocity: (" .. x .. ", " .. y .. ")")
-    --end
+    local x = string.format("%.1f", velocity.x)
+    local y = string.format("%.1f", velocity.y)
+    ui:label("Linear Velocity: (" .. x .. ", " .. y .. ")")
     
     local angular_velocity = obj:get_angular_velocity()
-    --if math.abs(angular_velocity) > 0.01 then
-        local a = string.format("%.1f", angular_velocity)
-        ui:label("Angular Velocity: " .. a)
-    --end
+    local a = string.format("%.1f", angular_velocity)
+    ui:label("Angular Velocity: " .. a)
 end
 
-local function info_material(ui, obj, paste)
-    if paste then
-        obj:set_friction(paste[1])
-        obj:set_restitution(paste[2])
-        obj:set_density(paste[3])
-    end
-    
+local info_material = {}
+info_material.set_value = function(self, obj, value)
+    obj:set_friction(value[1])
+    obj:set_restitution(value[2])
+    obj:set_density(value[3])
+end
+info_material.get_visible = function(self, obj)
+    local is_object = obj:get_type() == "object"
     local friction = obj:get_friction()
     local restitution = obj:get_restitution()
     local density = obj:get_density()
-    
-    if not ui then
-        return {friction, restitution, density}
-    end
-
-    if ui == "show" then
-        -- Only display material properties when they are not default
-        local epsilon = 0.0001
-        return math.abs(friction - 0.3) > epsilon or math.abs(restitution - 0.3) > epsilon or math.abs(density - 1.0) > epsilon
-    end
-
-    -- Only display material properties when they are not default
     local epsilon = 0.0001
-    --if math.abs(friction - 0.3) > epsilon or math.abs(restitution - 0.3) > epsilon or math.abs(density - 1.0) > epsilon then
-        ui:vertical(function(ui)
-            
-            ui:label("Friction: " .. string.format("%.2f", friction))
-            ui:label("Restitution: " .. string.format("%.2f", restitution))
-            ui:label("Density: " .. string.format("%.2f", density))
-        end)
-    --end
+    return is_object and (math.abs(friction - 0.3) > epsilon or math.abs(restitution - 0.3) > epsilon or math.abs(density - 1.0) > epsilon)
+end
+info_material.get_value = function(self, obj)
+    return {obj:get_friction(), obj:get_restitution(), obj:get_density()}
+end
+info_material.display = function(self, ui, obj)
+    local friction = obj:get_friction()
+    local restitution = obj:get_restitution()
+    local density = obj:get_density()
+    ui:vertical(function(ui)
+        ui:label("Friction: " .. string.format("%.2f", friction))
+        ui:label("Restitution: " .. string.format("%.2f", restitution))
+        ui:label("Density: " .. string.format("%.2f", density))
+    end)
+end
+
+local info_awake = {}
+info_awake.set_value = function(self, obj, value)
+    obj:set_is_awake(value)
+end
+info_awake.get_visible = function(self, obj)
+    return obj:get_type() == "object"
+end
+info_awake.get_value = function(self, obj)
+    return obj:get_is_awake()
+end
+info_awake.display = function(self, ui, obj)
+    local response, new_awake = ui:toggle(self:get_value(obj), "Awake")
+    if response:clicked() then
+        self:set_value(obj, new_awake)
+    end
+end
+
+local info_destroy = {}
+info_destroy.set_value = function(self, obj, value)
+    if value then
+        obj:destroy()
+    end
+end
+info_destroy.get_visible = function(self, obj)
+    return true
+end
+info_destroy.get_value = function(self, obj)
+    return obj:is_destroyed()
+end
+info_destroy.display = function(self, ui, obj)
+    if ui:button("Destroy"):clicked() then
+        self:set_value(obj, true)
+    end
 end
 
 local info_functions = {
     info_position,
     info_orientation,
     info_velocity,
-    --info_shape,
+    info_shape,
     info_material,
+    info_awake,
+    info_destroy,
 }
 
 -- Does the static UI at the top
@@ -394,8 +422,8 @@ local function add_paste_button(ui, obj, func)
     if ui:button("Paste"):clicked() and current_copy then
         local copy_obj = Scene:get_object(current_copy.id)
         if copy_obj then
-            local copy = func(nil, copy_obj)
-            func(nil, obj, copy) -- paste
+            local copy = func:get_value(copy_obj)
+            func:set_value(obj, copy) -- paste
         end
     end
 end
@@ -405,14 +433,14 @@ local function add_info_function(ui, obj, func_index, func)
         add_pin_button(ui, obj.id, func_index)
         add_paste_button(ui, obj, func)
         
-        func(ui, obj)
+        func:display(ui, obj)
     end)
 end
 
 local show_all = false
 local function add_info_functions(ui, obj)
     for index, func in pairs(info_functions) do
-        if show_all or pins[obj.id..'-'..index] or func("show", obj) then
+        if show_all or pins[obj.id..'-'..index] or func:get_visible(obj) then
             add_info_function(ui, obj, index, func)
         end
     end
