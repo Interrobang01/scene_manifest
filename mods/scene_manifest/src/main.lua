@@ -105,7 +105,7 @@ end
 refresh()
 
 -- Get the size description for a number or vector
-local function get_size(number)
+local function get_name_size(number)
     local aspect_ratio_description = ""
     local aspect_ratio
     local size = ""
@@ -142,42 +142,59 @@ local function get_size(number)
 end
 
 -- Get the color description for a color table
-local function get_color(color)
-    local color_name = ""
+local function get_name_color(color)
     if not color then
         return ""
     end
-
-    -- Check brightness
-    local brightness = (color.r + color.g + color.b) / 3
-    if brightness < 0.3 then
-        color_name = "Dark "
-    elseif brightness > 0.7 then
-        color_name = "Light "
+    local h, s, v = color:get_hsv()
+    local name = ""
+    -- Grayscale check
+    if s < 0.15 or v < 0.08 then
+        if v < 0.08 then
+            name = "Black "
+        elseif v > 0.92 then
+            name = "White "
+        else
+            name = "Gray "
+        end
+        return name
     end
-
-    -- Find dominant color
-    if color.r > color.g and color.r > color.b then
-        color_name = color_name .. "Red "
-    elseif color.g > color.r and color.g > color.b then
-        color_name = color_name .. "Green "
-    elseif color.b > color.r and color.b > color.g then
-        color_name = color_name .. "Blue "
-    elseif color.r > 0.5 and color.g > 0.5 then
-        color_name = color_name .. "Yellow "
-    elseif color.g > 0.5 and color.b > 0.5 then
-        color_name = color_name .. "Cyan "
-    elseif color.r > 0.5 and color.b > 0.5 then
-        color_name = color_name .. "Purple "
+    -- Light/Dark modifiers
+    if v > 0.85 then
+        name = "Light "
+    elseif v < 0.25 then
+        name = "Dark "
+    end
+    -- Color name by hue
+    local hue = h
+    if hue < 15 or hue >= 345 then
+        name = name .. "Red "
+    elseif hue < 40 then
+        if v < 0.7 then
+            name = name .. "Brown "
+        else
+            name = name .. "Orange "
+        end
+    elseif hue < 65 then
+        name = name .. "Yellow "
+    elseif hue < 170 then
+        name = name .. "Green "
+    elseif hue < 200 then
+        name = name .. "Teal "
+    elseif hue < 260 then
+        name = name .. "Blue "
+    elseif hue < 290 then
+        name = name .. "Purple "
+    elseif hue < 320 then
+        name = name .. "Magenta "
     else
-        color_name = color_name .. "Gray "
+        name = name .. "Pink "
     end
-
-    return color_name
+    return name
 end
 
 -- Get the shape type name for an object shape
-local function get_shape_type_name(shape, obj)
+local function get_name_shape_type(shape, obj)
     local shape_type = shape.shape_type
     -- Capitalize
     shape_type = shape_type:sub(1, 1):upper() .. shape_type:sub(2)
@@ -194,14 +211,14 @@ local function get_shape_type_name(shape, obj)
         end
         local width = max_x - min_x
         local height = max_y - min_y
-        shape_type = get_size(vec2(width, height)) .. #shape.points .. "-gon"
+        shape_type = get_name_size(vec2(width, height)) .. #shape.points .. "-gon"
     elseif shape_type == "Circle" or shape_type == "Capsule" then
-        shape_type = get_size(shape.radius) .. shape_type
+        shape_type = get_name_size(shape.radius) .. shape_type
     elseif shape_type == "Box" then
-        shape_type = get_size(shape.size) .. shape_type
+        shape_type = get_name_size(shape.size) .. shape_type
     end
 
-    shape_type = get_color(obj:get_color()) .. shape_type
+    shape_type = get_name_color(obj:get_color()) .. shape_type
     return shape_type
 end
 
@@ -212,7 +229,7 @@ local function get_or_make_object_name(obj)
     if name == nil then
         if obj:get_type() == "object" then
             local shape = obj:get_shape()
-            name = get_shape_type_name(shape, obj)
+            name = get_name_shape_type(shape, obj)
         else
             name = obj:get_type()
             name = name:sub(1, 1):upper() .. name:sub(2)
