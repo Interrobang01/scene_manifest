@@ -57,7 +57,7 @@ end
 local show_objects = true
 local show_attachments = false
 local scene_objects = {}
-function refresh()
+local function refresh()
     local found_entities = {}
 
     if not Scene then
@@ -503,7 +503,7 @@ local function add_window_object(ui, obj)
         end
 
         -- Get name
-        name = get_or_make_object_name(obj)
+        local name = get_or_make_object_name(obj)
         
         -- Make info dropdown as name
         -- Or don't if expand_all is true
@@ -523,7 +523,7 @@ end
 local function add_window_objects(ui, objs)
     local start_index, end_index = pagination:get_index_range()
     for i = start_index, end_index do
-        obj = objs[i]
+        local obj = objs[i]
         if obj and not obj:is_destroyed() then
             add_window_object(ui, obj) -- Call the function to add the object
         end
