@@ -1,4 +1,4 @@
 [package]
 name = "Scene Manifest"
-version = "0.1.1"
+version = "0.1.2"
 description = "Adds a menu listing and letting you interact with the contents of the scene."
