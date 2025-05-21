@@ -669,7 +669,10 @@ end
 local was_open = false
 function on_update()
     -- Make the main bar item and see if it's open
-    local open, anchor = Client:main_bar_item({})
+    local open, anchor = Client:main_bar_item({
+        name = "Scene Manifest",
+        icon = "@interrobang/scene_manifest/mods/scene_manifest/assets/clipboard.png"
+    })
 
     -- Don't draw if not open
     if not open then
