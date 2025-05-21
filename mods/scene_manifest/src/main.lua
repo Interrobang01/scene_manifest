@@ -327,11 +327,11 @@ info_orientation.display = function(self, ui, obj)
     end
 
     -- Set label
-    ui:label("Facing: " .. orientation)--.. string.format("%.1f", angle))
+    ui:label("Facing: " .. orientation .. " (" .. string.format("%.1f", angle) .. ")")
 
     -- Make rotation buttons
     if ui:button("Rotate CCW"):clicked() then
-        self:set_value(obj, self:get_value(obj) + math.pi/2)
+        self:set_value(obj, self:get_value(obj) - math.pi/2)
     end
     if ui:button("Rotate CW"):clicked() then
         self:set_value(obj, self:get_value(obj) + math.pi/2)
