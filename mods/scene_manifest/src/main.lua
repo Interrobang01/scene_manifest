@@ -235,8 +235,8 @@ local function get_or_make_object_name(obj)
             name = name:sub(1, 1):upper() .. name:sub(2)
         end
     end
-    name = name .. " (" .. obj:get_type():sub(1, 1) .. obj.id .. ")"
-    return name
+    name = name
+    return name, "(" .. obj:get_type():sub(1, 1) .. obj.id .. ")"
 end
 
 
@@ -281,7 +281,94 @@ info_shape.get_value = function(self, obj)
     return obj:get_shape()
 end
 info_shape.display = function(self, ui, obj)
-    ui:label("Shape Type: " .. obj:get_shape().shape_type)
+    local shape = self:get_value(obj)
+    
+    ui:vertical(function(ui)
+        ui:label("Shape Type: " .. shape.shape_type)
+        if shape.shape_type == "box" then
+            local x = shape.size.x
+            local y = shape.size.y
+
+            ui:horizontal(function(ui)
+                ui:label("Width:")
+                local _, new_x = ui:text_edit_singleline(x)
+                if new_x ~= x then
+                    -- Set new position
+                    shape.size.x = tonumber(new_x)
+                end
+            end)
+            ui:horizontal(function(ui)
+                ui:label("Height:")
+                local _, new_y = ui:text_edit_singleline(y)
+                if new_y ~= y then
+                    -- Set new position
+                    shape.size.y = tonumber(new_y)
+                end
+            end)
+        elseif shape.shape_type == "circle" or shape.shape_type == "capsule" then
+            local radius = shape.radius
+            ui:horizontal(function(ui)
+                ui:label("Radius:")
+                local _, new_radius = ui:text_edit_singleline(radius)
+                if new_radius ~= radius then
+                    -- Set new position
+                    shape.radius = tonumber(new_radius)
+                end
+            end)
+            if shape.shape_type == "capsule" then
+                local local_point_a = shape.local_point_a
+                local local_point_b = shape.local_point_b
+                ui:horizontal(function(ui)
+                    ui:label("Point A:")
+                    local _, new_x = ui:text_edit_singleline(local_point_a.x)
+                    local _, new_y = ui:text_edit_singleline(local_point_a.y)
+                    if new_x ~= local_point_a.x or new_y ~= local_point_a.y then
+                        -- Set new position
+                        shape.local_point_a = vec2(tonumber(new_x), tonumber(new_y))
+                    end
+                end)
+                ui:horizontal(function(ui)
+                    ui:label("Point B:")
+                    local _, new_x = ui:text_edit_singleline(local_point_b.x)
+                    local _, new_y = ui:text_edit_singleline(local_point_b.y)
+                    if new_x ~= local_point_b.x or new_y ~= local_point_b.y then
+                        -- Set new position
+                        shape.local_point_b = vec2(tonumber(new_x), tonumber(new_y))
+                    end
+                end)
+            end
+        elseif shape.shape_type == "polygon" then
+            ui:label("Polygon Points:")
+            local to_remove = {}
+            for i, point in ipairs(shape.points) do
+                local x = point.x
+                local y = point.y
+                
+                ui:horizontal(function(ui)
+                    ui:label("Point " .. i .. ":")
+                    local _, new_x = ui:text_edit_singleline(x)
+                    local _, new_y = ui:text_edit_singleline(y)
+                    if new_x ~= x or new_y ~= y then
+                        -- Set new position
+                        local new_position = vec2(tonumber(new_x), tonumber(new_y))
+                        shape.points[i] = new_position
+                    end
+                    if ui:button("Delete"):clicked() then
+                        to_remove[#to_remove+1] = i
+                    end
+                end)
+            end
+            -- Remove points
+            for i = #to_remove, 1, -1 do
+                table.remove(shape.points, to_remove[i])
+            end
+            -- Add point button
+            if ui:button("Add Point"):clicked() then
+                table.insert(shape.points, vec2(0, 0))
+            end
+        end
+    end)
+    self:set_value(obj, shape)
 end
 
 local info_position = {}
@@ -590,12 +677,13 @@ local function add_window_object(ui, obj)
         end
 
         -- Get name
-        local name = get_or_make_object_name(obj)
+        local name, id = get_or_make_object_name(obj)
         
         -- Make info dropdown as name
         -- Or don't if expand_all is true
         if not expand_all then
-            ui:collapsing_header(name, function(ui)
+            ui:label(name)
+            ui:collapsing_header(id, function(ui)
                 add_info_functions(ui, obj)
             end)
         else
