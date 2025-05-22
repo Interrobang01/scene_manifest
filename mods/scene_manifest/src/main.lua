@@ -730,15 +730,13 @@ info_destroy.display = function(self, ui, obj)
     local obj_id = obj.id
     -- If confirmation is pending for this object
     if destroy_confirmations[obj_id] then
-        ui:horizontal(function(ui)
-            if ui:button("Confirm"):clicked() then
-                self:set_value(obj, true)
-                destroy_confirmations[obj_id] = nil
-            end
-            if ui:button("Cancel"):clicked() then
-                destroy_confirmations[obj_id] = nil
-            end
-        end)
+        if ui:button("Confirm"):clicked() then
+            self:set_value(obj, true)
+            destroy_confirmations[obj_id] = nil
+        end
+        if ui:button("Cancel"):clicked() then
+            destroy_confirmations[obj_id] = nil
+        end
     else
         if ui:button("Destroy"):clicked() then
             destroy_confirmations[obj_id] = true
@@ -757,7 +755,7 @@ local info_functions = {
     info_shape,
     info_material,
     info_awake,
-    info_name,
+    --info_name, -- Changes the header name every time so it works badly
     info_body_type,
     info_z_index,
     --info_color, -- we have a color editor for that
@@ -787,11 +785,13 @@ end
 local pins = {}
 local function add_pin_button(ui, obj, index)
     local serialized_pin = serialize_pin(obj, index)
-    local _, new_checked = ui:toggle(pins[serialized_pin], "Pin")
-    if new_checked == false then
-        pins[serialized_pin] = nil
-    else
-        pins[serialized_pin] = true
+    local response, new_checked = ui:toggle(pins[serialized_pin], "Pin")
+    if response:clicked() then
+        if new_checked then
+            pins[serialized_pin] = true
+        else
+            pins[serialized_pin] = nil
+        end
     end
 end
 
@@ -843,7 +843,7 @@ end
 
 local function add_info_functions(ui, obj)
     for index, func in ipairs(info_functions) do
-        if info_functions_shown[index] and (pins[serialize_pin(obj, index)] or func:get_visible(obj)) then
+        if pins[serialize_pin(obj, index)] or (info_functions_shown[index] and func:get_visible(obj)) then
             add_info_function(ui, obj, index, func)
         end
     end
@@ -992,13 +992,18 @@ local function add_window_objects_pins(ui)
     local pinned_something = false
     for pin, pinned in pairs(pins) do
         if pinned then
-            local type, id, index = deserialize_pin(pin)
-            local obj = Scene:get_object(tonumber(id))
+            local type, id, index = table.unpack(deserialize_pin(pin))
+            local obj
+            if type == "object" then
+                obj = Scene:get_object(tonumber(id))
+            elseif type == "attachment" then
+                obj = Scene:get_attachment(tonumber(id))
+            end
             if obj then
                 pinned_something = true
                 add_info_function(ui, obj, index, info_functions[tonumber(index)]) -- Call the function to add the object property
             else
-                pins[pin] = nil -- Unpin if the object is destroyed
+                --pins[pin] = nil -- Unpin if the object is destroyed
             end
         else
             pins[pin] = nil -- Clear this pin if it's not pinned
