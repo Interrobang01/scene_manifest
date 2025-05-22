@@ -114,6 +114,9 @@ refresh()
 
 -- Get the size description for a number or vector
 local function get_name_size(number)
+    if true then
+        return "" -- No size description for now
+    end
     local aspect_ratio_description = ""
     local aspect_ratio
     local size = ""
@@ -219,7 +222,7 @@ local function get_name_shape_type(shape, obj)
         end
         local width = max_x - min_x
         local height = max_y - min_y
-        shape_type = get_name_size(vec2(width, height)) .. #shape.points .. "-gon"
+        shape_type = get_name_size(vec2(width, height)) .. shape_type--#shape.points .. "-gon"
     elseif shape_type == "Circle" or shape_type == "Capsule" then
         shape_type = get_name_size(shape.radius) .. shape_type
     elseif shape_type == "Box" then
@@ -244,7 +247,7 @@ local function get_or_make_object_name(obj)
         end
     end
     name = name
-    local id = "(" .. get_unique_id(obj) .. ")" .. string.rep("-", 20) -- For making it easier to click
+    local id = "(" .. get_unique_id(obj) .. ")"-- .. string.rep("-", 20) -- For making it easier to click
     return name, id
 end
 
@@ -836,19 +839,13 @@ local function add_window_object(ui, obj)
         return
     end
     ui:horizontal(function(ui)
-        -- Make buttons
-        for _, func in ipairs(button_functions) do
-            func(ui, obj)
-        end
-
         -- Get name
         local name, id = get_or_make_object_name(obj)
         
         -- Make info dropdown as name
         -- Or don't if expand_all is true
         if not expand_all then
-            ui:label(name)
-            ui:collapsing_header(id, function(ui)
+            ui:collapsing_header(name .. " " .. id, function(ui)
                 add_info_functions(ui, obj)
             end)
         else
@@ -856,6 +853,11 @@ local function add_window_object(ui, obj)
             ui:vertical(function(ui)
                 add_info_functions(ui, obj)
             end)
+        end
+
+        -- Make buttons
+        for _, func in ipairs(button_functions) do
+            func(ui, obj)
         end
     end)
 end
