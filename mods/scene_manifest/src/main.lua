@@ -269,6 +269,9 @@ local show_all = false
 
 local info_shape = {}
 info_shape.set_value = function(self, obj, value)
+    if obj:get_type() ~= "object" then
+        return
+    end
     obj:set_shape(value)
 end
 info_shape.get_visible = function(self, obj)
@@ -369,6 +372,9 @@ end
 
 local info_velocity = {}
 info_velocity.set_value = function(self, obj, value)
+    if obj:get_type() ~= "object" then
+        return
+    end
     obj:set_linear_velocity(value)
 end
 info_velocity.get_visible = function(self, obj)
@@ -394,6 +400,9 @@ end
 
 local info_material = {}
 info_material.set_value = function(self, obj, value)
+    if obj:get_type() ~= "object" then
+        return
+    end
     obj:set_friction(value[1])
     obj:set_restitution(value[2])
     obj:set_density(value[3])
@@ -425,6 +434,9 @@ end
 
 local info_awake = {}
 info_awake.set_value = function(self, obj, value)
+    if obj:get_type() ~= "object" then
+        return
+    end
     obj:set_is_awake(value)
 end
 info_awake.get_visible = function(self, obj)
@@ -512,11 +524,39 @@ local function add_pin_button(ui, obj, index)
     end
 end
 
-local function add_paste_button(ui, obj, func)
-    if ui:button("Paste"):clicked() and current_copy then
+local function paste_to_object(obj, func)
+    if current_copy then
         if not current_copy:is_destroyed() then
             local copy = func:get_value(current_copy)
             func:set_value(obj, copy) -- paste
+        end
+    end
+end
+local function paste_to_all_selected(obj, func) -- just pastes to all visible objects instead, because getting selected is broken rn
+    if current_copy then
+        if not current_copy:is_destroyed() then
+            local copy = func:get_value(current_copy)
+            if show_objects then
+                for _, selected in ipairs(Scene:get_all_objects()) do
+                    func:set_value(selected, copy) -- paste
+                end
+            end
+            if show_attachments then
+                for _, selected in ipairs(Scene:get_all_attachments()) do
+                    func:set_value(selected, copy) -- paste
+                end
+            end
+        end
+    end
+end
+
+local pasting_to_all_selected = false
+local function add_paste_button(ui, obj, func)
+    if ui:button("Paste"):clicked() then
+        if pasting_to_all_selected then
+            paste_to_all_selected(obj, func)
+        else
+            paste_to_object(obj, func)
         end
     end
 end
@@ -633,6 +673,12 @@ local function add_window_objects_header(ui, objs_length)
 
         if obj_response:clicked() or att_response:clicked() then
             refresh()
+        end
+    end)
+    -- Paste To Selected horizontal
+    ui:horizontal(function(ui)
+        if ui:button(pasting_to_all_selected and "Click Property to Paste" or "Paste to All Shown"):clicked() then
+            pasting_to_all_selected = not pasting_to_all_selected
         end
     end)
     ui:separator()
