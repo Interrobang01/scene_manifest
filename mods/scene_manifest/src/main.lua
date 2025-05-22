@@ -280,6 +280,7 @@ local button_functions = {
 local show_all = false
 
 local info_shape = {}
+info_shape.name = "Shape"
 info_shape.set_value = function(self, obj, value)
     if obj:get_type() ~= "object" then
         return
@@ -396,6 +397,7 @@ info_shape.display = function(self, ui, obj)
 end
 
 local info_position = {}
+info_position.name = "Position"
 info_position.set_value = function(self, obj, value)
     local is_object = obj:get_type() == "object"
     if is_object then
@@ -448,6 +450,7 @@ info_position.display = function(self, ui, obj)
 end
 
 local info_orientation = {}
+info_orientation.name = "Orientation"
 info_orientation.set_value = function(self, obj, value)
     local is_object = obj:get_type() == "object"
     if is_object then
@@ -495,6 +498,7 @@ info_orientation.display = function(self, ui, obj)
 end
 
 local info_velocity = {}
+info_velocity.name = "Velocity"
 info_velocity.set_value = function(self, obj, value)
     if obj:get_type() ~= "object" then
         return
@@ -523,6 +527,7 @@ info_velocity.display = function(self, ui, obj)
 end
 
 local info_material = {}
+info_material.name = "Material"
 info_material.set_value = function(self, obj, value)
     if obj:get_type() ~= "object" then
         return
@@ -557,6 +562,7 @@ info_material.display = function(self, ui, obj)
 end
 
 local info_awake = {}
+info_awake.name = "Awake"
 info_awake.set_value = function(self, obj, value)
     if obj:get_type() ~= "object" then
         return
@@ -577,6 +583,7 @@ info_awake.display = function(self, ui, obj)
 end
 
 local info_name = {}
+info_name.name = "Name"
 info_name.set_value = function(self, obj, value)
     obj:set_name(value)
 end
@@ -596,6 +603,7 @@ info_name.display = function(self, ui, obj)
 end
 
 local info_color = {}
+info_color.name = "Color"
 info_color.set_value = function(self, obj, value)
     if obj:get_type() ~= "object" then
         return
@@ -655,6 +663,7 @@ info_color.display = function(self, ui, obj)
 end
 
 local info_z_index = {}
+info_z_index.name = "Z Index"
 info_z_index.set_value = function(self, obj, value)
     if obj:get_type() ~= "object" then
         return
@@ -677,6 +686,7 @@ info_z_index.display = function(self, ui, obj)
 end
 
 local info_body_type = {}
+info_body_type.name = "Body Type"
 info_body_type.set_value = function(self, obj, value)
     if obj:get_type() ~= "object" then
         return
@@ -704,6 +714,7 @@ info_body_type.display = function(self, ui, obj)
 end
 
 local info_destroy = {}
+info_destroy.name = "Destroy"
 info_destroy.set_value = function(self, obj, value)
     if value then
         obj:destroy()
@@ -752,6 +763,11 @@ local info_functions = {
     --info_color, -- we have a color editor for that
     info_destroy,
 }
+
+local info_functions_shown = {}
+for i = 1, #info_functions do
+    info_functions_shown[i] = true
+end
 
 -- Does the static UI at the top
 local function add_window_header(ui)
@@ -827,7 +843,7 @@ end
 
 local function add_info_functions(ui, obj)
     for index, func in ipairs(info_functions) do
-        if pins[serialize_pin(obj, index)] or func:get_visible(obj) then
+        if info_functions_shown[index] and (pins[serialize_pin(obj, index)] or func:get_visible(obj)) then
             add_info_function(ui, obj, index, func)
         end
     end
@@ -895,6 +911,51 @@ local function add_window_page_text_input(ui)
     last_text = tostring(pagination.page)
 end
 
+local function add_first_options_horizontal(ui)
+    ui:horizontal(function(ui)
+        local response, new_expand_all = ui:toggle(expand_all, "Expand All")
+        expand_all = new_expand_all
+
+        local response, new_show_all = ui:toggle(show_all, "Always Show Properties")
+        show_all = new_show_all
+    end)
+end
+
+local function add_second_options_horizontal(ui)
+    ui:horizontal(function(ui)
+        local obj_response, new_show_objects = ui:toggle(show_objects, "Show Objects")
+        show_objects = new_show_objects
+
+        local att_response, new_show_attachments = ui:toggle(show_attachments, "Show Attachments")
+        show_attachments = new_show_attachments
+
+        if obj_response:clicked() or att_response:clicked() then
+            refresh()
+        end
+    end)
+end
+
+local function add_buttons_horizontal(ui)
+    ui:horizontal(function(ui)
+        if ui:button(pasting_to_all_selected and "Click Property to Paste" or "Paste to All Shown"):clicked() then
+            pasting_to_all_selected = not pasting_to_all_selected
+        end
+    end)
+end
+
+local function add_info_function_toggle_collapsing_header(ui)
+    ui:collapsing_header("Toggle Info", function(ui)
+        for i = 1, #info_functions do
+            local is_shown = info_functions_shown[i]
+            local name = info_functions[i].name
+            local response, new_is_shown = ui:toggle(is_shown, name)
+            if response:clicked() then
+                info_functions_shown[i] = new_is_shown
+            end
+        end
+    end)
+end
+
 local function add_window_objects_header(ui, objs_length)
     -- Pagination horizontal
     ui:horizontal(function(ui)
@@ -911,31 +972,14 @@ local function add_window_objects_header(ui, objs_length)
     end)
 
     -- Options horizontal
-    ui:horizontal(function(ui)
-        local response, new_expand_all = ui:toggle(expand_all, "Expand All")
-        expand_all = new_expand_all
-
-        local response, new_show_all = ui:toggle(show_all, "Always Show Properties")
-        show_all = new_show_all
-    end)
+    add_first_options_horizontal(ui)
     -- Second options horizontal
-    ui:horizontal(function(ui)
-        local obj_response, new_show_objects = ui:toggle(show_objects, "Show Objects")
-        show_objects = new_show_objects
-
-        local att_response, new_show_attachments = ui:toggle(show_attachments, "Show Attachments")
-        show_attachments = new_show_attachments
-
-        if obj_response:clicked() or att_response:clicked() then
-            refresh()
-        end
-    end)
+    add_second_options_horizontal(ui)
     -- Paste To Selected horizontal
-    ui:horizontal(function(ui)
-        if ui:button(pasting_to_all_selected and "Click Property to Paste" or "Paste to All Shown"):clicked() then
-            pasting_to_all_selected = not pasting_to_all_selected
-        end
-    end)
+    add_buttons_horizontal(ui)
+    -- Info function toggle dropdown
+    add_info_function_toggle_collapsing_header(ui)
+
     ui:separator()
 end
 
