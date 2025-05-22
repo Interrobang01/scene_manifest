@@ -23,6 +23,14 @@ local function deserialize_pin(pin)
     return iblib_split(pin, "-")
 end
 
+-- Gets a string ID unique for both objects and attachments
+-- Used for dropdowns and stuff that need unique IDs
+local function get_unique_id(obj)
+    local type = obj:get_type()
+    local id = obj.id
+    return type:sub(1, 1)..id
+end
+
 ---- Pagination ----
 local pagination = {}
 pagination.page = 1
@@ -236,7 +244,7 @@ local function get_or_make_object_name(obj)
         end
     end
     name = name
-    local id = "(" .. obj:get_type():sub(1, 1) .. obj.id .. ")" .. string.rep("-", 20) -- For making it easier to click
+    local id = "(" .. get_unique_id(obj) .. ")" .. string.rep("-", 20) -- For making it easier to click
     return name, id
 end
 
@@ -283,6 +291,7 @@ info_shape.get_value = function(self, obj)
 end
 info_shape.display = function(self, ui, obj)
     local shape = self:get_value(obj)
+    local shape_changed = false
     
     ui:vertical(function(ui)
         ui:label("Shape Type: " .. shape.shape_type)
@@ -293,7 +302,8 @@ info_shape.display = function(self, ui, obj)
             ui:horizontal(function(ui)
                 ui:label("Width:")
                 local _, new_x = ui:text_edit_singleline(x)
-                if new_x ~= x then
+                if tostring(new_x) ~= tostring(x) then
+                    shape_changed = true
                     -- Set new position
                     shape.size.x = tonumber(new_x)
                 end
@@ -301,7 +311,8 @@ info_shape.display = function(self, ui, obj)
             ui:horizontal(function(ui)
                 ui:label("Height:")
                 local _, new_y = ui:text_edit_singleline(y)
-                if new_y ~= y then
+                if tostring(new_y) ~= tostring(y) then
+                    shape_changed = true
                     -- Set new position
                     shape.size.y = tonumber(new_y)
                 end
@@ -311,7 +322,8 @@ info_shape.display = function(self, ui, obj)
             ui:horizontal(function(ui)
                 ui:label("Radius:")
                 local _, new_radius = ui:text_edit_singleline(radius)
-                if new_radius ~= radius then
+                if tostring(new_radius) ~= tostring(radius) then
+                    shape_changed = true
                     -- Set new position
                     shape.radius = tonumber(new_radius)
                 end
@@ -323,7 +335,8 @@ info_shape.display = function(self, ui, obj)
                     ui:label("Point A:")
                     local _, new_x = ui:text_edit_singleline(local_point_a.x)
                     local _, new_y = ui:text_edit_singleline(local_point_a.y)
-                    if new_x ~= local_point_a.x or new_y ~= local_point_a.y then
+                    if tostring(new_x) ~= tostring(local_point_a.x) or tostring(new_y) ~= tostring(local_point_a.y) then
+                        shape_changed = true
                         -- Set new position
                         shape.local_point_a = vec2(tonumber(new_x), tonumber(new_y))
                     end
@@ -332,7 +345,8 @@ info_shape.display = function(self, ui, obj)
                     ui:label("Point B:")
                     local _, new_x = ui:text_edit_singleline(local_point_b.x)
                     local _, new_y = ui:text_edit_singleline(local_point_b.y)
-                    if new_x ~= local_point_b.x or new_y ~= local_point_b.y then
+                    if tostring(new_x) ~= tostring(local_point_b.x) or tostring(new_y) ~= tostring(local_point_b.y) then
+                        shape_changed = true
                         -- Set new position
                         shape.local_point_b = vec2(tonumber(new_x), tonumber(new_y))
                     end
@@ -349,12 +363,14 @@ info_shape.display = function(self, ui, obj)
                     ui:label("Point " .. i .. ":")
                     local _, new_x = ui:text_edit_singleline(x)
                     local _, new_y = ui:text_edit_singleline(y)
-                    if new_x ~= x or new_y ~= y then
+                    if tostring(new_x) ~= tostring(x) or tostring(new_y) ~= tostring(y) then
+                        shape_changed = true
                         -- Set new position
                         local new_position = vec2(tonumber(new_x), tonumber(new_y))
                         shape.points[i] = new_position
                     end
                     if ui:button("Delete"):clicked() then
+                        shape_changed = true
                         to_remove[#to_remove+1] = i
                     end
                 end)
@@ -365,11 +381,15 @@ info_shape.display = function(self, ui, obj)
             end
             -- Add point button
             if ui:button("Add Point"):clicked() then
+                shape_changed = true
                 table.insert(shape.points, vec2(0, 0))
             end
         end
     end)
-    self:set_value(obj, shape)
+    if shape_changed then
+        -- Set new shape
+        self:set_value(obj, shape)
+    end
 end
 
 local info_position = {}
@@ -398,17 +418,30 @@ info_position.display = function(self, ui, obj)
     local x = string.format("%.1f", position.x)
     local y = string.format("%.1f", position.y)
 
-    -- Set label
-    ui:label("Position: (" .. x .. ", " .. y .. ")")
-
-    -- Set position field
-    local _, new_x = ui:text_edit_singleline(x)
-    local _, new_y = ui:text_edit_singleline(y)
-    if new_x ~= x or new_y ~= y then
-        -- Set new position
-        local new_position = vec2(tonumber(new_x), tonumber(new_y))
-        self:set_value(obj, new_position)
-    end
+    ui:vertical(function(ui)
+        -- Set label
+        ui:label("Position:")
+    
+        -- Set position field
+        ui:horizontal(function(ui)
+            ui:label("X:")
+            local _, new_x = ui:text_edit_singleline(x)
+            if tostring(new_x) ~= tostring(x) then
+                -- Set new position
+                position.x = tonumber(new_x)
+                self:set_value(obj, position)
+            end
+        end)
+        ui:horizontal(function(ui)
+            ui:label("Y:")
+            local _, new_y = ui:text_edit_singleline(y)
+            if tostring(new_y) ~= tostring(y) then
+                -- Set new position
+                position.y = tonumber(new_y)
+                self:set_value(obj, position)
+            end
+        end)
+    end)
 end
 
 local info_orientation = {}
@@ -540,6 +573,133 @@ info_awake.display = function(self, ui, obj)
     end
 end
 
+local info_name = {}
+info_name.set_value = function(self, obj, value)
+    obj:set_name(value)
+end
+info_name.get_visible = function(self, obj)
+    return true
+end
+info_name.get_value = function(self, obj)
+    return obj:get_name() or ""
+end
+info_name.display = function(self, ui, obj)
+    local name = self:get_value(obj)
+    ui:label("Name: ")
+    local _, new_name = ui:text_edit_singleline(name)
+    if tostring(new_name) ~= tostring(name) then
+        self:set_value(obj, new_name)
+    end
+end
+
+local info_color = {}
+info_color.set_value = function(self, obj, value)
+    if obj:get_type() ~= "object" then
+        return
+    end
+    obj:set_color(value)
+end
+info_color.get_visible = function(self, obj)
+    return obj:get_type() == "object"
+end
+info_color.get_value = function(self, obj)
+    return obj:get_color()
+end
+info_color.display = function(self, ui, obj)
+    local color = self:get_value(obj)
+    local r = string.format("%.2f", color.r)
+    local g = string.format("%.2f", color.g)
+    local b = string.format("%.2f", color.b)
+    local a = string.format("%.2f", color.a)
+
+    ui:vertical(function(ui)
+        ui:label("Color: (" .. r .. ", " .. g .. ", " .. b .. ", " .. a .. ")")
+        ui:horizontal(function(ui)
+            ui:label("R:")
+            local _, new_r = ui:text_edit_singleline(r)
+            if tostring(new_r) ~= tostring(r) then
+                -- Set new position
+                color.r = tonumber(new_r)
+            end
+        end)
+        ui:horizontal(function(ui)
+            ui:label("G:")
+            local _, new_g = ui:text_edit_singleline(g)
+            if tostring(new_g) ~= tostring(g) then
+                -- Set new position
+                color.g = tonumber(new_g)
+            end
+        end)
+        ui:horizontal(function(ui)
+            ui:label("B:")
+            local _, new_b = ui:text_edit_singleline(b)
+            if tostring(new_b) ~= tostring(b) then
+                -- Set new position
+                color.b = tonumber(new_b)
+            end
+        end)
+        ui:horizontal(function(ui)
+            ui:label("A:")
+            local _, new_a = ui:text_edit_singleline(a)
+            if tostring(new_a) ~= tostring(a) then
+                -- Set new position
+                color.a = tonumber(new_a)
+            end
+        end)
+    end)
+
+    self:set_value(obj, color) -- set the value to the object
+end
+
+local info_z_index = {}
+info_z_index.set_value = function(self, obj, value)
+    if obj:get_type() ~= "object" then
+        return
+    end
+    obj:set_z_index(value)
+end
+info_z_index.get_visible = function(self, obj)
+    return obj:get_type() == "object"
+end
+info_z_index.get_value = function(self, obj)
+    return obj:get_z_index()
+end
+info_z_index.display = function(self, ui, obj)
+    local z_index = self:get_value(obj)
+    ui:label("Z Index: ")
+    local _, new_z_index = ui:text_edit_singleline(z_index)
+    if tostring(new_z_index) ~= tostring(z_index) then
+        self:set_value(obj, tonumber(new_z_index))
+    end
+end
+
+local info_body_type = {}
+info_body_type.set_value = function(self, obj, value)
+    if obj:get_type() ~= "object" then
+        return
+    end
+    obj:set_body_type(value)
+end
+info_body_type.get_visible = function(self, obj)
+    return obj:get_type() == "object"
+end
+info_body_type.get_value = function(self, obj)
+    return obj:get_body_type()
+end
+info_body_type.display = function(self, ui, obj)
+    local body_type = self:get_value(obj)
+    local body_types = {BodyType.Dynamic, BodyType.Static, BodyType.Kinematic}
+
+    -- Set label
+    ui:label("Body Type: ")
+
+    -- Make dropdown
+    local _, new_body_type = ui:dropdown(get_unique_id(obj), body_type, body_types)
+    if new_body_type ~= body_type then
+        self:set_value(obj, new_body_type)
+    end
+end
+
 local info_destroy = {}
 info_destroy.set_value = function(self, obj, value)
     if value then
@@ -583,6 +743,10 @@ local info_functions = {
     info_shape,
     info_material,
     info_awake,
+    info_name,
+    info_body_type,
+    info_z_index,
+    --info_color, -- we have a color editor for that
     info_destroy,
 }
 
@@ -842,7 +1006,7 @@ function on_update()
     Client:window("Scene Manifest", {
         anchor = anchor,
         title_bar = false,
-        resizable = false,
+        resizable = true,
         collapsible = false,
     }, add_window) -- add_window is the function that draws the UI
 end
