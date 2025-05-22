@@ -236,7 +236,8 @@ local function get_or_make_object_name(obj)
         end
     end
     name = name
-    return name, "(" .. obj:get_type():sub(1, 1) .. obj.id .. ")"
+    local id = "(" .. obj:get_type():sub(1, 1) .. obj.id .. ")" .. string.rep("-", 20) -- For making it easier to click
+    return name, id
 end
 
 
