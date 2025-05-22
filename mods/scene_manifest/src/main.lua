@@ -746,18 +746,18 @@ local function add_window_objects_header(ui, objs_length)
 
     -- Options horizontal
     ui:horizontal(function(ui)
-        local response, new_expand_all = ui:toggle(expand_all, "Expand All");
+        local response, new_expand_all = ui:toggle(expand_all, "Expand All")
         expand_all = new_expand_all
 
-        local response, new_show_all = ui:toggle(show_all, "Always Show Properties");
+        local response, new_show_all = ui:toggle(show_all, "Always Show Properties")
         show_all = new_show_all
     end)
     -- Second options horizontal
     ui:horizontal(function(ui)
-        local obj_response, new_show_objects = ui:toggle(show_objects, "Show Objects");
+        local obj_response, new_show_objects = ui:toggle(show_objects, "Show Objects")
         show_objects = new_show_objects
 
-        local att_response, new_show_attachments = ui:toggle(show_attachments, "Show Attachments");
+        local att_response, new_show_attachments = ui:toggle(show_attachments, "Show Attachments")
         show_attachments = new_show_attachments
 
         if obj_response:clicked() or att_response:clicked() then
