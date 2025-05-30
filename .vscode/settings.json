@@ -1,0 +1,11 @@
+{
+    "Lua.diagnostics.globals": [
+        "BodyType",
+        "vec2",
+        "RemoteScene",
+        "self",
+        "Scene",
+        "Client",
+        "on_update"
+    ]
+}
