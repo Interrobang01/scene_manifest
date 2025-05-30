@@ -803,7 +803,37 @@ local function paste_to_object(obj, func)
         end
     end
 end
-local function paste_to_all_selected(obj, func) -- just pastes to all visible objects instead, because getting selected is broken rn
+
+local function paste_to_all_selected(obj, func)
+    if current_copy then
+        if not current_copy:is_destroyed() then
+            
+            local selected_objects = self:get_selected_objects()
+            local selected_attachments = self:get_selected_attachments()
+            local selected = selected_attachments
+            for i = 1, #selected_objects do
+                selected[#selected+1] = selected_objects[i]
+            end
+
+            RemoteScene:run{
+                input = {
+                    selected = selected,
+                    func = func,
+                },
+                code = [[
+                    local copy = input.func:get_value(current_copy)
+                    for i = 1, #input.selected do
+                        local obj = input.selected[i]
+                        if obj and not obj:is_destroyed() then
+                            input.func:set_value(obj, copy)
+                        end
+                    end
+                ]],
+            }
+        end
+    end
+end
+local function paste_to_all_visible(obj, func)
     if current_copy then
         if not current_copy:is_destroyed() then
             local copy = func:get_value(current_copy)
@@ -937,7 +967,7 @@ end
 
 local function add_buttons_horizontal(ui)
     ui:horizontal(function(ui)
-        if ui:button(pasting_to_all_selected and "Click Property to Paste" or "Paste to All Shown"):clicked() then
+        if ui:button(pasting_to_all_selected and "Click Property to Paste" or "Paste to All Selected"):clicked() then
             pasting_to_all_selected = not pasting_to_all_selected
         end
     end)
