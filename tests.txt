@@ -1,0 +1,128 @@
+I'll help you create a manual testing checklist for your scene_manifest UI project. Since this is a UI-focused project, manual testing is indeed often more appropriate than automated tests.
+
+First, let me understand more about your project to create a relevant testing list. Now let's look at the main functionality in the main.lua file: Let's look at more important files to understand the functionality: Let me check the info_functions.lua file too: Based on the files I've examined, I've got a good understanding of the scene_manifest UI. Now I'll create a comprehensive manual testing checklist for you.
+
+# Manual Testing Checklist for Scene Manifest UI
+
+## Basic Functionality Tests
+
+1. **UI Launch and Display**
+   - [ ] Verify the scene manifest UI displays correctly when opened
+   - [ ] Check that the UI title and elements are properly aligned
+   - [ ] Confirm the UI is responsive and scales appropriately with different window sizes
+
+2. **Scene Object Display**
+   - [ ] Verify objects in the scene appear in the manifest
+   - [ ] Confirm objects are sorted correctly by X position
+   - [ ] Verify object names/identifiers display correctly
+   - [ ] Check that object types are correctly labeled
+
+3. **Pagination**
+   - [ ] Verify correct number of items per page (should be 10)
+   - [ ] Test navigation between pages using the pagination controls
+   - [ ] Confirm first page loads correctly with the proper items
+   - [ ] Test navigation to last page shows correct items
+   - [ ] Verify page count displays correctly
+   - [ ] Test pagination when there are fewer items than page size
+   - [ ] Test pagination when there are many items across multiple pages
+
+4. **Filtering**
+   - [ ] Test toggling between showing objects and attachments
+   - [ ] Verify show_objects filter works correctly
+   - [ ] Verify show_attachments filter works correctly
+   - [ ] Test combining both filters to show all entities
+
+## Object Manipulation Tests
+
+1. **Selection**
+   - [ ] Verify objects can be selected from the list
+   - [ ] Test selection indication is visible and clear
+   - [ ] Verify selected object's properties are displayed correctly
+
+2. **Navigation ("Go" Button)**
+   - [ ] Test "Go" button to verify camera moves to the selected object
+   - [ ] Verify camera position is accurate after "Go" button is pressed
+   - [ ] Test "Go" button with objects at different positions in the scene
+
+3. **Copy Function**
+   - [ ] Test "Copy" button functionality
+   - [ ] Verify an object can be copied correctly
+   - [ ] Check that the copied object can be pasted/used elsewhere
+   - [ ] Verify the correct properties are maintained in the copied object
+
+4. **Object Properties**
+   - [ ] Verify object shape information displays correctly
+   - [ ] Test changing shape properties (for box objects: width, height)
+   - [ ] Verify color information displays correctly
+   - [ ] Test changing object color properties
+   - [ ] Verify position information is accurate
+   - [ ] Test modifying position values
+   - [ ] Check that changes persist after navigating away and back
+
+## Edge Cases
+
+1. **Empty Scene**
+   - [ ] Test UI behavior when the scene has no objects or attachments
+   - [ ] Verify appropriate messaging is shown when no items are found
+
+2. **Large Scene**
+   - [ ] Test performance with many objects in the scene (50+)
+   - [ ] Verify pagination works correctly with large numbers of objects
+   - [ ] Check sorting performance with many objects
+
+3. **Object Types**
+   - [ ] Test with various object shapes (box, sphere, etc.)
+   - [ ] Verify specialized properties for different object types display correctly
+   - [ ] Test with attachments of various types
+
+4. **UI Responsiveness**
+   - [ ] Verify UI remains responsive when manipulating large objects
+   - [ ] Test UI behavior during scene modifications (adding/removing objects)
+   - [ ] Check refresh functionality updates the list correctly
+
+## Serialization Tests
+
+1. **Pin Serialization**
+   - [ ] Test serialize_pin functionality
+   - [ ] Verify deserialization works correctly
+   - [ ] Test serialization with complex objects
+   - [ ] Check unique ID generation for serialized objects
+
+2. **Scene Saving/Loading**
+   - [ ] Verify scene objects persist correctly when saving and loading the scene
+   - [ ] Test that modified properties are saved correctly
+
+## Visual and UX Tests
+
+1. **Visual Appearance**
+   - [ ] Verify UI elements use consistent styling
+   - [ ] Check color indicators show accurately
+   - [ ] Verify icons (like clipboard.png) display correctly
+
+2. **User Experience**
+   - [ ] Test keyboard navigation within the UI
+   - [ ] Verify tooltips or help text are present where needed
+   - [ ] Check for appropriate feedback when actions are performed
+
+## Integration Tests
+
+1. **Interaction with Scene**
+   - [ ] Verify changes made in the manifest affect the scene in real-time
+   - [ ] Test that scene modifications outside the manifest are reflected in the UI after refresh
+   - [ ] Verify the refresh function updates all object properties correctly
+
+2. **Interaction with other Simulo features**
+   - [ ] Test compatibility with other Simulo packages if possible
+   - [ ] Verify the manifest doesn't interfere with other UI elements
+
+## Documentation Test
+
+1. **README Verification**
+   - [ ] Confirm the README accurately describes the functionality
+   - [ ] Verify any usage instructions match actual behavior
+
+---
+
+This manual testing checklist covers the key functionality of your scene_manifest UI. Since this is a UI-based project working with a game/simulation environment, manual testing is indeed more appropriate than automated tests.
+
+Would you like me to create a file with this checklist that you can include in your project for future reference?
