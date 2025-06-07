@@ -19,7 +19,7 @@ local get_unique_id = serialization.get_unique_id
 local show_objects = true
 local show_attachments = false
 local scene_objects = {}
-local function refresh()
+local function hard_refresh()
     local found_entities = {}
 
     if not Scene then
@@ -54,7 +54,25 @@ local function refresh()
     -- Refresh pagination
     pagination:refresh(#scene_objects)
 end
-refresh()
+hard_refresh()
+
+local function soft_refresh()
+    -- This is a soft refresh, which just updates the pagination
+
+    -- Clear destroyed objects
+    local changed = false
+    for i = #scene_objects, 1, -1 do
+        local obj = scene_objects[i]
+        if obj:is_destroyed() then
+            table.remove(scene_objects, i)
+            changed = true
+        end
+    end
+
+    if changed then
+        pagination:refresh(#scene_objects)
+    end
+end
 
 -- Get the size description for a number or vector
 local function get_name_size(number)
@@ -215,7 +233,7 @@ local function add_window_header(ui)
     -- Header row with refresh button
     ui:horizontal(function(ui)
         if ui:button("Refresh"):clicked() then
-            refresh()
+            hard_refresh()
         end
     end)
 
@@ -400,7 +418,7 @@ local function add_second_options_horizontal(ui)
         show_attachments = new_show_attachments
 
         if obj_response:clicked() or att_response:clicked() then
-            refresh()
+            hard_refresh()
         end
     end)
 end
@@ -520,7 +538,9 @@ function on_update()
     -- Refresh on open
     if was_open == false then
         was_open = true
-        refresh()
+        hard_refresh()
+    else
+        soft_refresh()
     end
 
     -- Make the window
