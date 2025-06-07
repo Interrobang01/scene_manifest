@@ -295,7 +295,7 @@ local pasting_to_all_selected = false
 local function add_paste_button(ui, obj, func)
     if ui:button("Paste"):clicked() then
         if pasting_to_all_selected then
-            paste_to_all_selected(obj, func)
+            paste_to_all_visible(obj, func)--paste_to_all_selected(obj, func)
         else
             paste_to_object(obj, func)
         end
