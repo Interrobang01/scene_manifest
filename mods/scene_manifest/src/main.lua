@@ -440,6 +440,17 @@ local function add_info_function_toggle_collapsing_header(ui)
     end)
 end
 
+local function add_clipboard_label(ui)
+    ui:horizontal(function(ui)
+        if button_functions.current_copy() then
+            local name, id = get_or_make_object_name(button_functions.current_copy())
+            ui:label("Clipboard: " .. name .. " " .. id)
+        else
+            ui:label("Clipboard: Empty")
+        end
+    end)
+end
+
 local function add_window_objects_header(ui, objs_length)
     -- Pagination horizontal
     ui:horizontal(function(ui)
@@ -461,6 +472,8 @@ local function add_window_objects_header(ui, objs_length)
     add_second_options_horizontal(ui)
     -- Info function toggle dropdown
     add_info_function_toggle_collapsing_header(ui)
+    -- Clipboard label
+    add_clipboard_label(ui)
 
     ui:separator()
 end

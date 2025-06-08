@@ -20,6 +20,8 @@ return {
     button_go,
     button_copy,
     current_copy = function()
-        return current_copy
+        if current_copy and not current_copy:is_destroyed() then
+            return current_copy
+        end
     end,
 }
