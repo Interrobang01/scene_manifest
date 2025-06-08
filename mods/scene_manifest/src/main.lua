@@ -263,7 +263,7 @@ local function paste_to_object(obj, func)
 end
 
 local paste_to_all_selected_remotescene = require("@interrobang/scene_manifest/mods/scene_manifest/src/paste_to_all_selected_remotescene.lua", 'string')
-local function paste_to_all_selected(obj, func_index)
+local function paste_to_all_selected(func_index)
     if button_functions.current_copy() then
         if not button_functions.current_copy():is_destroyed() then
             
@@ -285,9 +285,10 @@ local function paste_to_all_selected(obj, func_index)
         end
     end
 end
-local function paste_to_all_visible(obj, func)
+local function paste_to_all_visible(func_index)
     if button_functions.current_copy() then
         if not button_functions.current_copy():is_destroyed() then
+            local func = info_functions[func_index]
             local copy = func:get_value(button_functions.current_copy())
             if show_objects then
                 for _, selected in ipairs(Scene:get_all_objects()) do
@@ -303,14 +304,9 @@ local function paste_to_all_visible(obj, func)
     end
 end
 
-local pasting_to_all_selected = false
 local function add_paste_button(ui, obj, func, func_index)
     if ui:button("Paste"):clicked() then
-        if pasting_to_all_selected then
-            paste_to_all_selected(obj, func_index)
-        else
-            paste_to_object(obj, func)
-        end
+        paste_to_object(obj, func)
     end
 end
 
@@ -417,10 +413,20 @@ local function add_second_options_horizontal(ui)
     end)
 end
 
-local function add_buttons_horizontal(ui)
+local function add_info_function_settings_horizontal(ui, func_index)
     ui:horizontal(function(ui)
-        if ui:button(pasting_to_all_selected and "Click Property to Paste" or "Paste to All Selected"):clicked() then
-            pasting_to_all_selected = not pasting_to_all_selected
+        local is_shown = info_functions_shown[func_index]
+        local name = info_functions[func_index].name
+        local response, new_is_shown = ui:toggle(is_shown, name)
+        if response:clicked() then
+            info_functions_shown[func_index] = new_is_shown
+        end
+
+        if ui:button("Paste to Selected"):clicked() then
+            paste_to_all_selected(func_index)
+        end
+        if ui:button("Paste to Shown"):clicked() then
+            paste_to_all_visible(func_index)
         end
     end)
 end
@@ -428,12 +434,7 @@ end
 local function add_info_function_toggle_collapsing_header(ui)
     ui:collapsing_header("Toggle Info", function(ui)
         for i = 1, #info_functions do
-            local is_shown = info_functions_shown[i]
-            local name = info_functions[i].name
-            local response, new_is_shown = ui:toggle(is_shown, name)
-            if response:clicked() then
-                info_functions_shown[i] = new_is_shown
-            end
+            add_info_function_settings_horizontal(ui, i)
         end
     end)
 end
@@ -457,8 +458,6 @@ local function add_window_objects_header(ui, objs_length)
     add_first_options_horizontal(ui)
     -- Second options horizontal
     add_second_options_horizontal(ui)
-    -- Paste To Selected horizontal
-    add_buttons_horizontal(ui)
     -- Info function toggle dropdown
     add_info_function_toggle_collapsing_header(ui)
 
