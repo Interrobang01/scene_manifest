@@ -262,6 +262,7 @@ local function paste_to_object(obj, func)
     end
 end
 
+---@diagnostic disable-next-line: redundant-parameter
 local paste_to_all_selected_remotescene = require("@interrobang/scene_manifest/mods/scene_manifest/src/paste_to_all_selected_remotescene.lua", 'string')
 local function paste_to_all_selected(func_index)
     if button_functions.current_copy() then
