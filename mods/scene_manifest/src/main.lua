@@ -263,13 +263,15 @@ local function paste_to_object(obj, func)
 end
 
 ---@diagnostic disable-next-line: redundant-parameter
-local paste_to_all_selected_remotescene = require("@interrobang/scene_manifest/mods/scene_manifest/src/paste_to_all_selected_remotescene.lua", 'string')
+local paste_to_all_selected_remotescene_code = require("@interrobang/scene_manifest/mods/scene_manifest/src/paste_to_all_selected_remotescene.lua", 'string')
 local function paste_to_all_selected(func_index)
     if button_functions.current_copy() then
         if not button_functions.current_copy():is_destroyed() then
             
             local selected_objects = self:get_selected_objects()
             local selected_attachments = self:get_selected_attachments()
+
+            -- Concatenate selected objects and attachments
             local selected = selected_attachments
             for i = 1, #selected_objects do
                 selected[#selected+1] = selected_objects[i]
@@ -281,7 +283,7 @@ local function paste_to_all_selected(func_index)
                     func_index = func_index,
                     current_copy = button_functions.current_copy(),
                 },
-                code = paste_to_all_selected_remotescene,
+                code = paste_to_all_selected_remotescene_code,
             }
         end
     end
