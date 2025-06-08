@@ -507,8 +507,8 @@ local function add_window(ui)
 
     -- Display the list of objects
     add_window_objects_header(ui, #scene_objects)
+    add_window_objects_pins(ui)
     if scene_objects and #scene_objects > 0 then
-        add_window_objects_pins(ui)
         ui:scroll_area({}, function(ui)
             add_window_objects(ui, scene_objects)
         end)
