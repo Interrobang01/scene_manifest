@@ -8,6 +8,7 @@ A Simulo package that adds a menu showing all the contents of the scene, allowin
 - **UI Customization**: Toggle display various UI features
   - Pin properties of specific objects
   - Show only objects, only attachments, both, or neither
+  - Show only objects which are selected
   - Hide properties you don't want to see
 - **Pagination System**: Navigate through large scenes with page controls
 - **Object Navigation**: Quickly go to object positions in the scene

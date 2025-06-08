@@ -13,11 +13,42 @@ local get_unique_id = serialization.get_unique_id
 
 
 
+local function remote_object_to_object(remote_object, type)
+    -- Convert a remote object to a local object
+    if not remote_object then
+        return nil
+    end
+    local object
+    if type == "attachment" then
+        object = Scene:get_attachment(remote_object.id)
+    end
+    if type == "object" then
+        object = Scene:get_object(remote_object.id)
+    end
+    if not object then
+        return nil
+    end
+    return object
+end
 
-
+local function remote_object_table_to_object_table(remote_objects, type)
+    thing_to_print = ("Converting remote objects to local objects, count: " .. #remote_objects)
+    -- Convert a table of remote objects to a table of local objects
+    local objects = {}
+    for _, remote_object in ipairs(remote_objects) do
+        thing_to_print = thing_to_print .. " " .. remote_object.id
+        local object = remote_object_to_object(remote_object, type)
+        if object then
+            table.insert(objects, object)
+        end
+    end
+    thing_to_print = thing_to_print .. " with final count: " .. #objects
+    return objects
+end
 
 local show_objects = true
 local show_attachments = false
+local show_only_selected = false
 local scene_objects = {}
 local function hard_refresh()
     local found_entities = {}
@@ -28,7 +59,12 @@ local function hard_refresh()
     end
 
     if show_objects then
-        local found_objects = Scene:get_all_objects()
+        local found_objects
+        if show_only_selected then
+            found_objects = remote_object_table_to_object_table(self:get_selected_objects(), "object")
+        else
+            found_objects = Scene:get_all_objects()
+        end
         -- Sort by x position
         table.sort(found_objects, function(a, b)
             return a:get_position().x < b:get_position().x
@@ -38,7 +74,12 @@ local function hard_refresh()
         end
     end
     if show_attachments then
-        local found_attachments = Scene:get_all_attachments()
+        local found_attachments
+        if show_only_selected then
+            found_attachments = remote_object_table_to_object_table(self:get_selected_attachments(), "attachment")
+        else
+            found_attachments = Scene:get_all_attachments()
+        end
         -- Sort by x position
         table.sort(found_attachments, function(a, b)
             return a:get_local_position().x < b:get_local_position().x
@@ -410,7 +451,10 @@ local function add_second_options_horizontal(ui)
         local att_response, new_show_attachments = ui:toggle(show_attachments, "Show Attachments")
         show_attachments = new_show_attachments
 
-        if obj_response:clicked() or att_response:clicked() then
+        local sel_response, new_show_only_selected = ui:toggle(show_only_selected, "Show Only Selected")
+        show_only_selected = new_show_only_selected
+
+        if obj_response:clicked() or att_response:clicked() or sel_response:clicked() then
             hard_refresh()
         end
     end)
@@ -428,7 +472,7 @@ local function add_info_function_settings_horizontal(ui, func_index)
         if ui:button("Paste to Selected"):clicked() then
             paste_to_all_selected(func_index)
         end
-        if ui:button("Paste to Shown"):clicked() then
+        if ui:button("Paste to All"):clicked() then
             paste_to_all_visible(func_index)
         end
     end)
@@ -547,6 +591,8 @@ function on_update()
     -- Refresh on open
     if was_open == false then
         was_open = true
+        hard_refresh()
+    elseif show_only_selected then
         hard_refresh()
     else
         soft_refresh()
