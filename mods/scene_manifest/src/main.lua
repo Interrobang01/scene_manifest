@@ -325,7 +325,7 @@ end
 
 local function add_info_functions(ui, obj)
     for index, func in ipairs(info_functions) do
-        if pins[serialize_pin(obj, index)] or (info_functions_shown[index] and func:get_visible(obj)) then
+        if pins[serialize_pin(obj, index)] or (info_functions_shown[index] and (func:get_visible(obj) or show_all)) then
             add_info_function(ui, obj, index, func)
         end
     end
