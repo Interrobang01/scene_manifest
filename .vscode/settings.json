@@ -6,6 +6,7 @@
         "self",
         "Scene",
         "Client",
-        "on_update"
+        "on_update",
+        "input"
     ]
 }

@@ -262,7 +262,8 @@ local function paste_to_object(obj, func)
     end
 end
 
-local function paste_to_all_selected(obj, func)
+local paste_to_all_selected_remotescene = require("@interrobang/scene_manifest/mods/scene_manifest/src/paste_to_all_selected_remotescene.lua", 'string')
+local function paste_to_all_selected(obj, func_index)
     if button_functions.current_copy() then
         if not button_functions.current_copy():is_destroyed() then
             
@@ -276,17 +277,10 @@ local function paste_to_all_selected(obj, func)
             RemoteScene:run{
                 input = {
                     selected = selected,
-                    func = func,
+                    func_index = func_index,
+                    current_copy = button_functions.current_copy(),
                 },
-                code = [[
-                    local copy = input.func:get_value(button_functions.current_copy())
-                    for i = 1, #input.selected do
-                        local obj = input.selected[i]
-                        if obj and not obj:is_destroyed() then
-                            input.func:set_value(obj, copy)
-                        end
-                    end
-                ]],
+                code = paste_to_all_selected_remotescene,
             }
         end
     end
@@ -310,10 +304,10 @@ local function paste_to_all_visible(obj, func)
 end
 
 local pasting_to_all_selected = false
-local function add_paste_button(ui, obj, func)
+local function add_paste_button(ui, obj, func, func_index)
     if ui:button("Paste"):clicked() then
         if pasting_to_all_selected then
-            paste_to_all_visible(obj, func)--paste_to_all_selected(obj, func)
+            paste_to_all_selected(obj, func_index)
         else
             paste_to_object(obj, func)
         end
@@ -323,7 +317,7 @@ end
 local function add_info_function(ui, obj, func_index, func)
     ui:horizontal(function(ui)
         add_pin_button(ui, obj, func_index)
-        add_paste_button(ui, obj, func)
+        add_paste_button(ui, obj, func, func_index)
         
         func:display(ui, obj)
     end)
