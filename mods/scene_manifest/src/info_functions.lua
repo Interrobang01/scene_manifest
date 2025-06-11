@@ -481,6 +481,6 @@ return {
     --info_name, -- Changes the header name every time so it works badly
     info_body_type,
     info_z_index,
-    --info_color, -- we have a color editor for that
+    info_color, -- we have a color editor for that
     info_destroy,
 }
